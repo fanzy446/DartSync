@@ -1,3 +1,5 @@
+#include '../common/constants.h'
+
 typedef struct p2p_request_pkg{
 	char* filename;
 	unsigned long int timestamp;
@@ -11,4 +13,4 @@ typedef struct p2p_data_pkg{
 
 int download(char* filename, char** nodes, int numOfNodes);
 
-int upload(p2p_pkg_t* pkg);
+int upload(p2p_pkg_t* pkg); 
