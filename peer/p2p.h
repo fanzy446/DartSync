@@ -13,4 +13,4 @@ typedef struct p2p_data_pkg{
 
 int download(char* filename, char** nodes, int numOfNodes);
 
-int upload(p2p_request_pkg_t* pkg, /*char**/struct in_addr* ip, int port_num); 
+int upload(int sockfd, p2p_request_pkg_t* pkg); 
