@@ -23,7 +23,7 @@ typedef struct node{
      //for the file table on tracker, it records the ip of all peers which has the
      //newest edition of the file
      char *newpeerip;
-   }Node,*pNode;
+}Node,*pNode;
 
 typedef struct filetable{
 	struct node *head;
