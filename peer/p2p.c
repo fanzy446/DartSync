@@ -182,6 +182,56 @@ int download_recvpkt(p2p_data_pkg_t* pkt, int conn)
     return -1;
 }
 
+int upload_recvreqpkt(p2p_request_pkg_t* pkt, int conn)
+{
+	// printf("overlay_recvpkt: start\n");
+	char buf[sizeof(p2p_request_pkg_t)+2];
+    char c;
+    int idx = 0;
+    // state can be 0,1,2,3;
+    // 0 starting point
+    // 1 '!' received
+    // 2 '&' received, start receiving segment
+    // 3 '!' received,
+    // 4 '#' received, finish receiving segment
+    int state = 0;
+    while(recv(conn,&c,1,0)>0) {
+        if (state == 0) {
+            if(c=='!')
+                state = 1;
+        }
+        else if(state == 1) {
+            if(c=='&')
+                state = 2;
+            else
+                state = 0;
+        }
+        else if(state == 2) {
+        	buf[idx]=c;
+            idx++;
+            if(c=='!') {
+                state = 3;
+            }
+        }
+        else if(state == 3) {
+        	buf[idx]=c;
+            idx++;
+            if(c=='#') {
+                state = 0;
+                idx = 0;
+                memcpy(pkt,buf,sizeof(p2p_request_pkg_t));
+                // printf("overlay_recvpkt: end\n");
+                return 1;
+            }
+            else if(c!='!') {
+                state = 2;
+            }
+        }
+    }
+    perror("overlay_recvpkt: receive failed");
+    return -1;
+}
+
 int init_listen_sock(int port){
 	int listenfd, connfd, n;
 	struct sockaddr_in cli_addr, serv_addr;
@@ -210,19 +260,19 @@ int init_listen_sock(int port){
 	    }
 	    printf("Connection accepted\n");
 
-	    char *buf = (char *)malloc(sizeof(char)*1024);
-	    if((n=recv(connfd, buf, 1024, 0))>0){	
-			printf("from ip:%s | port:%d\n", inet_ntoa(cli_addr.sin_addr), cli_addr.sin_port);
-			printf("recv request:%s\n", buf);
+	    p2p_request_pkg_t* req_pkt;
+	    memset(req_pkt, 0, sizeof(p2p_request_pkg_t));
 
-			upload(connfd, &test_pkg);
-		}
+	    upload_recvreqpkt(req_pkt, connfd);
+	    	
+		printf("from ip:%s | port:%d\n", inet_ntoa(cli_addr.sin_addr), cli_addr.sin_port);
+
+		upload(connfd, req_pkt);
 	}
 
 }
 
 int upload(int sockfd, p2p_request_pkg_t* pkg){
-	int partition = pkg->partition;
 
 	FILE *fp;
 	if((fp = fopen(pkg->filename,"r"))!=NULL){
