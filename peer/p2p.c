@@ -1,7 +1,9 @@
 #include "p2p.h"
 #include <string.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <stdio.h>
+#include <pthread.h>
 #include <arpa/inet.h>
 
 #define MAX_LISTEN_NUM 30
@@ -22,8 +24,8 @@ int download(char* filename, int size, unsigned long int timestamp, char** nodes
 				continue;
 			}
 			char fname[FILE_NAME_LENGTH];
-			memset(&fname, 0, FILE_NAME_LENGTH);
-		    sprintf(&fname, "%s_%d", filename, i);
+			memset(fname, 0, FILE_NAME_LENGTH);
+		    sprintf(fname, "%s_%d", filename, i);
 			if( access( fname, F_OK ) != -1 ) {
 				exist[i] = 1;
 			    continue;
@@ -31,7 +33,7 @@ int download(char* filename, int size, unsigned long int timestamp, char** nodes
 			end = 0;
 			
 			char* ip = nodes[curNode];
-			curNode = (curNode+1)%total;
+			curNode = (curNode+1)%numOfNodes;
 
 			p2p_request_arg_t request_args;
 			memset(&request_args, 0, sizeof(p2p_request_arg_t));
@@ -41,7 +43,7 @@ int download(char* filename, int size, unsigned long int timestamp, char** nodes
 			request_args.partition = i;
 			
 		    pthread_t download_thread;
-			pthread_create(&download_thread,NULL,singleDownload,&request_args);
+			pthread_create(&download_thread,NULL,singleDownload,(void*)&request_args);
 
 		}
 	}
@@ -50,7 +52,7 @@ int download(char* filename, int size, unsigned long int timestamp, char** nodes
 
 }
 
-int singleDownload(void* args){
+void* singleDownload(void* args){
 	p2p_request_arg_t* request_args = (p2p_request_arg_t*) args;
 
 	struct sockaddr_in servaddr;
@@ -95,8 +97,8 @@ int singleDownload(void* args){
 		    if(download_recvpkt(&recv_pkg, conn) > 0){
 		    	//store in a file
 		    	char filename[FILE_NAME_LENGTH];
-		    	memset(&filename, 0, FILE_NAME_LENGTH);
-		    	sprintf(&filename, "%s_%d", request_args->filename, request_args->partition);
+		    	memset(filename, 0, FILE_NAME_LENGTH);
+		    	sprintf(filename, "%s_%d", request_args->filename, request_args->partition);
 				FILE* f = fopen(filename,"w");
 				fwrite(recv_pkg.data,recv_pkg.size,1,f);
 				fclose(f);
