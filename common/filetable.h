@@ -27,6 +27,6 @@ typedef struct node{
 
 typedef struct filetable{
 	struct node *head;
-};
+}filetable_t;
 
 #endif

@@ -1,5 +1,5 @@
-#include "../common/constants.h"
 #include "../peer/p2p.h"
+#include <stdlib.h>
 #include <stdio.h> //printf
 #include <string.h>    //strlen
 #include <sys/socket.h>    //socket
@@ -10,7 +10,6 @@ int main(int argc , char *argv[])
  	char* fileName = "test.txt";
 
 	FILE *f = fopen(fileName,"r");
-	assert(f!=NULL);
 	fseek(f,0,SEEK_END);
 	int size = ftell(f);
 	fclose(f);

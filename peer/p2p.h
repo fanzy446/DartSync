@@ -24,11 +24,12 @@ typedef struct p2p_request_arg{
 
 int download(char* filename, int size, unsigned long int timestamp, char** nodes, int numOfNodes);
 
-int singleDownload(void* args);
+void* singleDownload(void* args);
 
 int download_sendpkt(p2p_request_pkg_t* pkt, int conn);
 
 int download_recvpkt(p2p_data_pkg_t* pkt, int conn);
 
 int upload(int sockfd, p2p_request_pkg_t* pkg); 
+
 #endif
