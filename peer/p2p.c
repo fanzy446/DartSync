@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <arpa/inet.h>
 
+#define MAX_LISTEN_NUM 30
+#define LISTENING_PORT 1234
 
 int download(char* filename, int size, unsigned long int timestamp, char** nodes, int numOfNodes){
 	int total = size/BLOCK_SIZE+1;
@@ -178,4 +180,74 @@ int download_recvpkt(p2p_data_pkg_t* pkt, int conn)
     }
     perror("overlay_recvpkt: receive failed");
     return -1;
+}
+
+int init_listen_sock(int port){
+	int listenfd, connfd, n;
+	struct sockaddr_in cli_addr, serv_addr;
+	socklen_t clilen;
+
+	if ((listenfd = socket (AF_INET, SOCK_STREAM, 0)) <0)
+	{
+		perror("Error when creating listen socket");
+		exit(1);
+	}
+
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	serv_addr.sin_port = htons(port);
+	bind(listenfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
+	listen (listenfd, MAX_LISTEN_NUM);
+	printf("start listening!\n");
+	while(1)
+	{
+		clilen = sizeof(cli_addr);
+		connfd = accept(listenfd, (struct sockaddr *)&cli_addr, (socklen_t*)&clilen);
+	    if (connfd < 0)
+	    {
+	        perror("accept failed");
+	        return 1;
+	    }
+	    printf("Connection accepted\n");
+
+	    char *buf = (char *)malloc(sizeof(char)*1024);
+	    if((n=recv(connfd, buf, 1024, 0))>0){	
+			printf("from ip:%s | port:%d\n", inet_ntoa(cli_addr.sin_addr), cli_addr.sin_port);
+			printf("recv request:%s\n", buf);
+
+			upload(connfd, &test_pkg);
+		}
+	}
+
+}
+
+int upload(int sockfd, p2p_request_pkg_t* pkg){
+	int partition = pkg->partition;
+
+	FILE *fp;
+	if((fp = fopen(pkg->filename,"r"))!=NULL){
+		//read content to buffer
+		char readBuf[BLOCK_SIZE];
+
+		fseek(fp, (pkg->partition-1) * sizeof(char) * BLOCK_SIZE, SEEK_SET);
+		fread(readBuf, sizeof(char), BLOCK_SIZE, fp);
+
+		//printf("%s\n", readBuf);
+		fclose(fp);
+
+		if(send(sockfd , readBuf , strlen(readBuf) , 0) < 0){
+            puts("Send failed\n");
+            return -1;
+        }
+        printf("file sended\n");
+
+	}else{
+		printf("Can't open file!\n");
+	}
+
+	return 1;
+}
+
+int main(){
+	init_listen_sock(LISTENING_PORT);
 }

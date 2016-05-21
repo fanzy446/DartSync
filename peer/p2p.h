@@ -30,6 +30,5 @@ int download_sendpkt(p2p_request_pkg_t* pkt, int conn);
 
 int download_recvpkt(p2p_data_pkg_t* pkt, int conn);
 
-int upload(p2p_data_pkg_t* pkg); 
-
+int upload(int sockfd, p2p_request_pkg_t* pkg); 
 #endif
