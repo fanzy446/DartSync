@@ -7,4 +7,6 @@
 
 #define CONNECTION_PORT 1234
 
+#define TEST 2
+
 #endif
