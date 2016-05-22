@@ -117,7 +117,7 @@ void* singleDownload(void* args){
 		pthread_exit(-1);
 	}
 	close(conn);
-	printf("singleDownload: get new port %d", port);
+	printf("singleDownload: get new port %d\n", port);
 	servaddr.sin_port = htons(port);
 	conn = socket(AF_INET,SOCK_STREAM,0);
 	if(conn<0) {
