@@ -51,6 +51,7 @@ int download(char* filename, int size, unsigned long int timestamp, char** nodes
 			}
 		}
 		free(download_threads);
+		sleep(2);
 	}
 	free(exist);
 
@@ -303,19 +304,90 @@ int init_listen_sock(int port){
 	    }
 	    printf("Connection accepted\n");
 
-	    p2p_request_pkg_t* req_pkt;
+	    struct p2p_request_pkg_t* req_pkt = malloc(sizeof(p2p_request_pkg_t));
 	    memset(req_pkt, 0, sizeof(p2p_request_pkg_t));
 
 	    upload_recvreqpkt(req_pkt, connfd);
 	    	
 		printf("from ip:%s | port:%d\n", inet_ntoa(cli_addr.sin_addr), cli_addr.sin_port);
 
-		upload(connfd, req_pkt);
+		send_thread_arg_t send_arg;
+		send_arg.conn = connfd;
+		send_arg.req_info = req_pkt;
+
+		pthread_t* upload_threads = malloc(sizeof(pthread_t));
+		pthread_create(upload_threads,NULL,upload_thd,(void*)&send_arg);
+		//upload(connfd, req_pkt);
 	}
 
 }
 
+int upload_thd(void* arg){
+	send_thread_arg_t *send_arg = (send_thread_arg_t *) arg;
+	int upload_conn = send_arg->conn;
+	struct p2p_request_pkg_t* req_info = send_arg->req_info;
+
+	int  up_conn, nextport;
+	struct sockaddr_in up_addr, cli_addr;
+
+	if ((up_conn = socket (AF_INET, SOCK_STREAM, 0)) <0)
+	{
+		perror("Error when creating up_conn socket");
+		exit(1);
+	}
+
+	nextport = 1500+rand()%15000;
+
+	up_addr.sin_family = AF_INET;
+	up_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	up_addr.sin_port = nextport;
+
+	socklen_t len;
+	len = sizeof(struct sockaddr_in);
+
+	
+
+	bind(up_conn, (struct sockaddr *) &up_addr, (socklen_t*)&len);
+	
+	listen (up_conn, 1);
+
+
+	int port = ntohs(up_addr.sin_port);
+
+	printf("port:%d\n", port);
+
+    if(send(upload_conn , &port , sizeof(int) , 0) < 0){
+        puts("Send failed\n");
+        return -1;
+    }
+
+    printf("111\n");
+
+    socklen_t cli_len = sizeof(struct sockaddr_in);
+
+	int connfd = accept(up_conn, (struct sockaddr *)&cli_addr, (socklen_t*)&cli_len);
+	if (connfd < 0)
+	{
+	    perror("accept failed");
+	    return 1;
+	}
+	printf("Connection accepted\n");
+
+
+    printf("222\n");
+	upload(connfd, req_info);
+
+	printf("777\n");
+    // if(connect(conn, (struct sockaddr*)&servaddr, sizeof(servaddr))<0){
+    // 	perror("singleDownload: connect failed 1.");
+    // 	close(conn);
+    //     pthread_exit(-1);
+    // }
+}
+
 int upload(int sockfd, p2p_request_pkg_t* pkg){
+
+	printf("part:%d\n", pkg->partition);
 
 	FILE *fp;
 	if((fp = fopen(pkg->filename,"r"))!=NULL){
@@ -325,7 +397,7 @@ int upload(int sockfd, p2p_request_pkg_t* pkg){
 		fseek(fp, (pkg->partition-1) * sizeof(char) * BLOCK_SIZE, SEEK_SET);
 		fread(readBuf, sizeof(char), BLOCK_SIZE, fp);
 
-		//printf("%s\n", readBuf);
+		printf("%s\n", readBuf);
 		fclose(fp);
 
 		if(send(sockfd , readBuf , strlen(readBuf) , 0) < 0){
