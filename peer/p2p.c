@@ -18,6 +18,7 @@ int download(char* filename, int size, unsigned long int timestamp, char** nodes
 	int end = 0;
 	while(end != 1){
 		end = 1;
+		pthread_t* download_threads = malloc(sizeof(pthread_t) * total);
 		for(int i = 0; i < total; i++){
 			//check if i exists on disk
 			if(exist[i] > 0){
@@ -42,14 +43,22 @@ int download(char* filename, int size, unsigned long int timestamp, char** nodes
 			request_args.timestamp = timestamp;
 			request_args.partition = i;
 			
-		    pthread_t download_thread;
-			pthread_create(&download_thread,NULL,singleDownload,(void*)&request_args);
-
+			pthread_create(download_threads+i,NULL,singleDownload,(void*)&request_args);
 		}
+
+		for(int i = 0; i < total; i++){
+			if(exist[i] == 1){
+				continue;
+			}
+			int status = 0;
+			pthread_join(download_threads[i], &status);
+			if(status == 1){
+				exist[i] = 1;
+			}
+		}
+		free(download_threads);
 	}
-
 	free(exist);
-
 }
 
 void* singleDownload(void* args){
@@ -63,12 +72,12 @@ void* singleDownload(void* args){
 	int conn = socket(AF_INET,SOCK_STREAM,0);
 	if(conn<0) {
     	perror("download: create socket failed.");
-        return -1;
+        pthread_exit(-1);
     }
     if(connect(conn, (struct sockaddr*)&servaddr, sizeof(servaddr))<0){
     	perror("download: connect failed.");
     	close(conn);
-        return -1;
+        pthread_exit(-1);
     }
 
     p2p_request_pkg_t pkg;
@@ -79,18 +88,18 @@ void* singleDownload(void* args){
 	if(download_sendpkt(&pkg, conn) > 0){
 		int port = 0;
 		//get the new port and connect to the upload thread
-		if(recv(conn,&port,sizeof(int),0)>0){
+		if(recv(conn,&port,sizeof(int),0) > 0){
 			close(conn);
 			servaddr.sin_port = htons(port);
 			conn = socket(AF_INET,SOCK_STREAM,0);
 			if(conn<0) {
 		    	perror("download: create socket failed.");
-		        return -1;
+		        pthread_exit(-1);
 		    }
 		    if(connect(conn, (struct sockaddr*)&servaddr, sizeof(servaddr))<0){
 		    	perror("download: connect failed.");
 		    	close(conn);
-		        return -1;
+		        pthread_exit(-1);
 		    }
 		    p2p_data_pkg_t recv_pkg;
 			memset(&recv_pkg, 0, sizeof(p2p_data_pkg_t));
@@ -106,7 +115,7 @@ void* singleDownload(void* args){
 		}
 	}
 	close(conn);
-
+	pthread_exit(1);
 }
 
 int download_sendpkt(p2p_request_pkg_t* pkt, int conn)
@@ -298,8 +307,4 @@ int upload(int sockfd, p2p_request_pkg_t* pkg){
 	}
 
 	return 1;
-}
-
-int main(){
-	init_listen_sock(LISTENING_PORT);
 }
