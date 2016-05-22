@@ -16,7 +16,8 @@ int main(int argc , char *argv[])
 
 	unsigned long int timestamp = 1111111;
 	char** nodes = malloc(sizeof(char*));
-	nodes[0] = "129.170.212.87";
+	// nodes[0] = "129.170.212.87";
+	nodes[0] = "127.0.0.1";
 
 	download(fileName, size, timestamp, nodes, 1);
 
