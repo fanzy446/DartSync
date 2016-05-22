@@ -11,6 +11,7 @@
 
 int download(char* filename, int size, unsigned long int timestamp, char** nodes, int numOfNodes){
 	int total = size/BLOCK_SIZE+1;
+	printf("download: split into %d parts\n", total);
 	int curNode = 0;
 	int* exist = malloc(sizeof(int) * total);
 	memset(exist, 0, sizeof(int) * total);
@@ -118,8 +119,8 @@ void* singleDownload(void* args){
 		pthread_exit(-1);
 	}
 	close(conn);
-	printf("singleDownload: get new port %d", port);
 	servaddr.sin_port = htons(port);
+	printf("singleDownload: going to connect port %d\n", servaddr.sin_port);
 	conn = socket(AF_INET,SOCK_STREAM,0);
 	if(conn<0) {
     	perror("singleDownload: create socket failed 2.");
@@ -226,6 +227,31 @@ int download_recvpkt(p2p_data_pkg_t* pkt, int conn)
     return -1;
 }
 
+int upload_sendpkt(p2p_data_pkg_t* pkt, int conn)
+{
+	printf("upload_sendpkt: start\n");
+	char bufstart[2];
+    char bufend[2];
+    bufstart[0] = '!';
+    bufstart[1] = '&';
+    bufend[0] = '!';
+    bufend[1] = '#';
+    if (send(conn, bufstart, 2, 0) < 0) {
+        perror("upload_sendpkt: send start failed");
+        return -1;
+    }
+    if(send(conn, pkt, sizeof(p2p_data_pkg_t),0)<0) {
+        perror("upload_sendpkt: send pkg failed");
+        return -1;
+    }
+    if(send(conn, bufend,2,0)<0) {
+        perror("upload_sendpkt: send end failed");
+        return -1;
+    }
+    printf("upload_sendpkt: end\n");
+    return 1;
+}
+
 int upload_recvreqpkt(p2p_request_pkg_t* pkt, int conn)
 {
 	printf("upload_recvreqpkt: start\n");
@@ -324,10 +350,8 @@ int init_listen_sock(int port){
 
 int upload_thd(void* arg){
 	send_thread_arg_t *send_arg = (send_thread_arg_t *) arg;
-	int upload_conn = send_arg->conn;
-	struct p2p_request_pkg_t* req_info = send_arg->req_info;
 
-	int  up_conn, nextport;
+	int  up_conn;
 	struct sockaddr_in up_addr, cli_addr;
 
 	if ((up_conn = socket (AF_INET, SOCK_STREAM, 0)) <0)
@@ -336,30 +360,27 @@ int upload_thd(void* arg){
 		exit(1);
 	}
 
-	nextport = 1500+rand()%15000;
+	int nextport = 1500+rand()%15000;
 
 	up_addr.sin_family = AF_INET;
 	up_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	up_addr.sin_port = nextport;
 
-	socklen_t len;
-	len = sizeof(struct sockaddr_in);
+	socklen_t len = sizeof(struct sockaddr_in);
 
-	
-
-	bind(up_conn, (struct sockaddr *) &up_addr, (socklen_t*)&len);
+	bind(up_conn, (struct sockaddr *) &up_addr, sizeof(up_addr));
 	
 	listen (up_conn, 1);
 
+	int port = ntohs(nextport);
 
-	int port = ntohs(up_addr.sin_port);
+	printf("listen on port: %d\n", nextport);
 
-	printf("port:%d\n", port);
-
-    if(send(upload_conn , &port , sizeof(int) , 0) < 0){
+    if(send(send_arg->conn , &port , sizeof(int) , 0) < 0){
         puts("Send failed\n");
         return -1;
     }
+    close(send_arg->conn);
 
     printf("111\n");
 
@@ -375,9 +396,10 @@ int upload_thd(void* arg){
 
 
     printf("222\n");
-	upload(connfd, req_info);
+	upload(connfd, send_arg->req_info);
 
 	printf("777\n");
+	close(connfd);
     // if(connect(conn, (struct sockaddr*)&servaddr, sizeof(servaddr))<0){
     // 	perror("singleDownload: connect failed 1.");
     // 	close(conn);
@@ -391,19 +413,19 @@ int upload(int sockfd, p2p_request_pkg_t* pkg){
 
 	FILE *fp;
 	if((fp = fopen(pkg->filename,"r"))!=NULL){
-		//read content to buffer
-		char readBuf[BLOCK_SIZE];
+		p2p_data_pkg_t package;
+		memset(&package, 0, sizeof(p2p_data_pkg_t));
 
 		fseek(fp, (pkg->partition-1) * sizeof(char) * BLOCK_SIZE, SEEK_SET);
-		fread(readBuf, sizeof(char), BLOCK_SIZE, fp);
+		fread(package.data, sizeof(char), BLOCK_SIZE, fp);
 
-		printf("%s\n", readBuf);
+		printf("%s\n", package.data);
 		fclose(fp);
 
-		if(send(sockfd , readBuf , strlen(readBuf) , 0) < 0){
-            puts("Send failed\n");
-            return -1;
-        }
+		package.size = strlen(package.data);
+		 
+		upload_sendpkt(&package, sockfd);
+		
         printf("file sended\n");
 
 	}else{
