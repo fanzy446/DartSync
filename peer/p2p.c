@@ -24,13 +24,6 @@ int download(char* filename, int size, unsigned long int timestamp, char** nodes
 			if(exist[i] > 0){
 				continue;
 			}
-			char fname[FILE_NAME_LENGTH];
-			memset(fname, 0, FILE_NAME_LENGTH);
-		    sprintf(fname, "%s_%d", filename, i);
-			if( access( fname, F_OK ) != -1 ) {
-				exist[i] = 1;
-			    continue;
-			}
 			end = 0;
 			
 			char* ip = nodes[curNode];
@@ -53,15 +46,41 @@ int download(char* filename, int size, unsigned long int timestamp, char** nodes
 			int status = 0;
 			pthread_join(download_threads[i], &status);
 			if(status == 1){
+				printf("download: partition %d downloaded successfully\n", i);
 				exist[i] = 1;
 			}
 		}
 		free(download_threads);
 	}
 	free(exist);
+
+	//combine temporary files
+	char recvFile[FILE_NAME_LENGTH];
+	memset(recvFile, 0, FILE_NAME_LENGTH);
+	sprintf(recvFile, "%s_recv", filename);
+	FILE* recv = fopen(recvFile,"a");
+	for(int i = 0; i < total; i++){
+		char tmpFile[FILE_NAME_LENGTH];
+		memset(tmpFile, 0, FILE_NAME_LENGTH);
+		sprintf(tmpFile, "%s_%d", filename, i);
+
+		FILE* tmp = fopen(tmpFile,"r");
+		fseek(tmp,0,SEEK_END);
+		int fileLen = ftell(tmp);
+		fseek(tmp,0,SEEK_SET);
+		char *buffer = (char*)malloc(fileLen);
+		fread(buffer,fileLen,1,tmp);
+		fclose(tmp);
+
+		fwrite(buffer,fileLen,1,recv);
+
+		printf("download: combine file %d of length %d\n", i, fileLen);
+	}
+	fclose(recv);
 }
 
 void* singleDownload(void* args){
+	printf("singleDownload: start\n");
 	p2p_request_arg_t* request_args = (p2p_request_arg_t*) args;
 
 	struct sockaddr_in servaddr;
@@ -71,11 +90,11 @@ void* singleDownload(void* args){
 
 	int conn = socket(AF_INET,SOCK_STREAM,0);
 	if(conn<0) {
-    	perror("download: create socket failed.");
+    	perror("singleDownload: create socket failed 1.");
         pthread_exit(-1);
     }
     if(connect(conn, (struct sockaddr*)&servaddr, sizeof(servaddr))<0){
-    	perror("download: connect failed.");
+    	perror("singleDownload: connect failed 1.");
     	close(conn);
         pthread_exit(-1);
     }
@@ -85,42 +104,55 @@ void* singleDownload(void* args){
 	memcpy(pkg.filename, request_args->filename, strlen(request_args->filename));
 	pkg.timestamp = request_args->timestamp;
 	pkg.partition = request_args->partition;
-	if(download_sendpkt(&pkg, conn) > 0){
-		int port = 0;
-		//get the new port and connect to the upload thread
-		if(recv(conn,&port,sizeof(int),0) > 0){
-			close(conn);
-			servaddr.sin_port = htons(port);
-			conn = socket(AF_INET,SOCK_STREAM,0);
-			if(conn<0) {
-		    	perror("download: create socket failed.");
-		        pthread_exit(-1);
-		    }
-		    if(connect(conn, (struct sockaddr*)&servaddr, sizeof(servaddr))<0){
-		    	perror("download: connect failed.");
-		    	close(conn);
-		        pthread_exit(-1);
-		    }
-		    p2p_data_pkg_t recv_pkg;
-			memset(&recv_pkg, 0, sizeof(p2p_data_pkg_t));
-		    if(download_recvpkt(&recv_pkg, conn) > 0){
-		    	//store in a file
-		    	char filename[FILE_NAME_LENGTH];
-		    	memset(filename, 0, FILE_NAME_LENGTH);
-		    	sprintf(filename, "%s_%d", request_args->filename, request_args->partition);
-				FILE* f = fopen(filename,"w");
-				fwrite(recv_pkg.data,recv_pkg.size,1,f);
-				fclose(f);
-		    }
-		}
+	if(download_sendpkt(&pkg, conn) < 0){
+		perror("singleDownload: download_sendpkt failed 1.");
+		close(conn);
+		pthread_exit(-1);
+	}
+	int port = 0;
+	//get the new port and connect to the upload thread
+	if(recv(conn,&port,sizeof(int),0) < 0){
+		perror("singleDownload: recv failed.");
+		close(conn);
+		pthread_exit(-1);
 	}
 	close(conn);
+	printf("singleDownload: get new port %d", port);
+	servaddr.sin_port = htons(port);
+	conn = socket(AF_INET,SOCK_STREAM,0);
+	if(conn<0) {
+    	perror("singleDownload: create socket failed 2.");
+        pthread_exit(-1);
+    }
+    if(connect(conn, (struct sockaddr*)&servaddr, sizeof(servaddr))<0){
+    	perror("singleDownload: connect failed 2.");
+    	close(conn);
+        pthread_exit(-1);
+    }
+    p2p_data_pkg_t recv_pkg;
+	memset(&recv_pkg, 0, sizeof(p2p_data_pkg_t));
+    if(download_recvpkt(&recv_pkg, conn) < 0){
+		perror("singleDownload: download_recvpkt failed 2.");
+    	close(conn);
+        pthread_exit(-1);
+    }
+
+	//store in a file
+	char filename[FILE_NAME_LENGTH];
+	memset(filename, 0, FILE_NAME_LENGTH);
+	sprintf(filename, "%s_%d", request_args->filename, request_args->partition);
+	FILE* f = fopen(filename,"w");
+	fwrite(recv_pkg.data,recv_pkg.size,1,f);
+	fclose(f);
+	
+	close(conn);
 	pthread_exit(1);
+	printf("singleDownload: end\n");
 }
 
 int download_sendpkt(p2p_request_pkg_t* pkt, int conn)
 {
-	// printf("overlay_sendpkt: start\n");
+	printf("download_sendpkt: start\n");
 	char bufstart[2];
     char bufend[2];
     bufstart[0] = '!';
@@ -145,7 +177,7 @@ int download_sendpkt(p2p_request_pkg_t* pkt, int conn)
 
 int download_recvpkt(p2p_data_pkg_t* pkt, int conn)
 {
-	// printf("overlay_recvpkt: start\n");
+	printf("download_recvpkt: start\n");
 	char buf[sizeof(p2p_data_pkg_t)+2];
     char c;
     int idx = 0;
@@ -181,7 +213,7 @@ int download_recvpkt(p2p_data_pkg_t* pkt, int conn)
                 state = 0;
                 idx = 0;
                 memcpy(pkt,buf,sizeof(p2p_data_pkg_t));
-                // printf("overlay_recvpkt: end\n");
+                printf("download_recvpkt: end\n");
                 return 1;
             }
             else if(c!='!') {
@@ -189,13 +221,13 @@ int download_recvpkt(p2p_data_pkg_t* pkt, int conn)
             }
         }
     }
-    perror("overlay_recvpkt: receive failed");
+    perror("download_recvpkt: receive failed");
     return -1;
 }
 
 int upload_recvreqpkt(p2p_request_pkg_t* pkt, int conn)
 {
-	// printf("overlay_recvpkt: start\n");
+	printf("upload_recvreqpkt: start\n");
 	char buf[sizeof(p2p_request_pkg_t)+2];
     char c;
     int idx = 0;
@@ -231,7 +263,7 @@ int upload_recvreqpkt(p2p_request_pkg_t* pkt, int conn)
                 state = 0;
                 idx = 0;
                 memcpy(pkt,buf,sizeof(p2p_request_pkg_t));
-                // printf("overlay_recvpkt: end\n");
+                printf("upload_recvreqpkt: end\n");
                 return 1;
             }
             else if(c!='!') {
@@ -239,7 +271,7 @@ int upload_recvreqpkt(p2p_request_pkg_t* pkt, int conn)
             }
         }
     }
-    perror("overlay_recvpkt: receive failed");
+    perror("upload_recvreqpkt: receive failed");
     return -1;
 }
 
