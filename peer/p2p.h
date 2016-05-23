@@ -20,11 +20,14 @@ typedef struct p2p_request_arg{
 	char* filename;
 	unsigned long int timestamp;
 	int partition;
+	int* exist;
+	int* running;
 } p2p_request_arg_t;
 
 typedef struct send_thread_arg
 {
 	int conn;
+	int* running;
 	struct p2p_request_arg *req_info;
 }send_thread_arg_t;
 
