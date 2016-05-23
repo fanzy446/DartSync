@@ -34,15 +34,16 @@ int main(int argc , char *argv[])
 
 	unsigned long int timestamp = 1111111;
 	char** nodes = malloc(sizeof(char*));
-	// nodes[0] = "129.170.212.87";
+	
 	//nodes[0] = "127.0.0.1";
 	nodes[0] = "129.170.214.115";
 	nodes[1] = "129.170.213.62";
 	nodes[2] = "129.170.214.100";
+	// nodes[0] = "129.170.212.87";
 
-	download(large_fileName, size1, timestamp, nodes, 1);
-	download(short_fileName1, size2, timestamp, nodes, 1);
-	download(short_fileName2, size3, timestamp, nodes, 1);
+	download(large_fileName, size1, timestamp, nodes, 3);
+	download(short_fileName1, size2, timestamp, nodes, 3);
+	download(short_fileName2, size3, timestamp, nodes, 3);
 
     return 0;
 }

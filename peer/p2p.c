@@ -40,6 +40,7 @@ int download(char* filename, int size, unsigned long int timestamp, char** nodes
 			exist[i] = 1;
 		}
 	}
+	printf("download: resume download successfully\n");
 
 	while(end != 1){
 		end = 1;
@@ -72,8 +73,8 @@ int download(char* filename, int size, unsigned long int timestamp, char** nodes
 
 			p2p_request_arg_t* request_args = malloc(sizeof(p2p_request_arg_t)) ;
 			memset(request_args, 0, sizeof(p2p_request_arg_t));
-			request_args->ip = ip;
-			request_args->filename = filename;
+			memcpy(request_args->ip, ip, strlen(ip));
+			memcpy(request_args->filename, filename, strlen(filename));
 			request_args->timestamp = timestamp;
 			request_args->partition = i;
 			request_args->exist = &(exist[i]);
@@ -113,20 +114,20 @@ int download(char* filename, int size, unsigned long int timestamp, char** nodes
 		free(buffer);
 	}
 	fclose(recv);
+	return 1;
 }
 
 void* singleDownload(void* args){
 	
 	p2p_request_arg_t* request_args = (p2p_request_arg_t*) args;
-	// printf("singleDownload: start %d\n", request_args->partition);
+	printf("singleDownload: start download #%d of %s from %s\n", request_args->partition, request_args->filename, request_args->ip);
 
 	struct sockaddr_in servaddr;
     servaddr.sin_port = htons(CONNECTION_PORT);
 	servaddr.sin_family = AF_INET;
 	servaddr.sin_addr.s_addr = inet_addr(request_args->ip);
 
-	int conn;
-	int code = 0;
+	int conn, code = 0;
 
 	while(1){
 		conn = socket(AF_INET,SOCK_STREAM,0);
@@ -138,10 +139,11 @@ void* singleDownload(void* args){
 	    	perror("singleDownload: connect failed 1.");
 	    	break;
 	    }
+	    printf("singleDownload: connect successfully\n");
 
 	    p2p_request_pkg_t pkg;
 		memset(&pkg, 0, sizeof(p2p_request_pkg_t));
-		memcpy(pkg.filename, request_args->filename, strlen(request_args->filename));
+		memcpy(pkg.filename, request_args->filename, FILE_NAME_LENGTH);
 		pkg.timestamp = request_args->timestamp;
 		pkg.partition = request_args->partition;
 		if(download_sendpkt(&pkg, conn) < 0){
@@ -194,13 +196,13 @@ void* singleDownload(void* args){
 	(*request_args->running)--;
 	pthread_mutex_unlock(running_mutex);
 	free(request_args);
-	// printf("singleDownload: end %d\n", request_args->partition);
+	printf("singleDownload: end %d\n", request_args->partition);
     return code;
 }
 
 int download_sendpkt(p2p_request_pkg_t* pkt, int conn)
 {
-	// printf("download_sendpkt: start\n");
+	printf("download_sendpkt: start\n");
 	char bufstart[2];
     char bufend[2];
     bufstart[0] = '!';
@@ -219,13 +221,13 @@ int download_sendpkt(p2p_request_pkg_t* pkt, int conn)
         perror("download_sendpkt: send end failed");
         return -1;
     }
-    // printf("download_sendpkt: end\n");
+    printf("download_sendpkt: end\n");
     return 1;
 }
 
 int download_recvpkt(p2p_data_pkg_t* pkt, int conn)
 {
-	// printf("download_recvpkt: start\n");
+	printf("download_recvpkt: start\n");
 	char buf[sizeof(p2p_data_pkg_t)+2];
     char c;
     int idx = 0;
@@ -261,7 +263,7 @@ int download_recvpkt(p2p_data_pkg_t* pkt, int conn)
                 state = 0;
                 idx = 0;
                 memcpy(pkt,buf,sizeof(p2p_data_pkg_t));
-                // printf("download_recvpkt: end\n");
+                printf("download_recvpkt: end\n");
                 return 1;
             }
             else if(c!='!') {
@@ -349,7 +351,7 @@ int upload_recvreqpkt(p2p_request_pkg_t* pkt, int conn)
 }
 
 int init_listen_sock(int port){
-	int listenfd, connfd, n;
+	int listenfd, connfd;
 	struct sockaddr_in cli_addr, serv_addr;
 	socklen_t clilen;
 
@@ -408,7 +410,7 @@ int init_listen_sock(int port){
 	return -1;
 }
 
-int upload_thd(void* arg){
+void* upload_thd(void* arg){
 	send_thread_arg_t *send_arg = (send_thread_arg_t *) arg;
 	int  up_conn = -1, connfd = -1;
 	struct sockaddr_in up_addr, cli_addr;
@@ -423,7 +425,6 @@ int upload_thd(void* arg){
 		up_addr.sin_family = AF_INET;
 		up_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 		up_addr.sin_port = nextport;
-		socklen_t len = sizeof(struct sockaddr_in);
 
 		if(bind(up_conn, (struct sockaddr *) &up_addr, sizeof(up_addr)) < 0){
 			perror("upload_thd: Error when binding socket");
