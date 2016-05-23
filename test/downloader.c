@@ -5,7 +5,7 @@
 #include <sys/socket.h>    //socket
 #include <arpa/inet.h> //inet_addr
 
-//argv[1] as the uploader
+//argv[1] as the uploader IP address
 int main(int argc , char *argv[])
 {
 	printf("uploader:%s\n",argv[1]);
