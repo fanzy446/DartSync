@@ -15,7 +15,7 @@ int main(int argc , char *argv[])
 	fclose(f);
 
 	unsigned long int timestamp = 1111111;
-	char** nodes = malloc(sizeof(char*));
+	char** nodes = malloc(sizeof(char*)*2);
 	// nodes[0] = "129.170.212.87";
 	nodes[0] = "127.0.0.1";
 

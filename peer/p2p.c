@@ -31,6 +31,16 @@ int download(char* filename, int size, unsigned long int timestamp, char** nodes
 	running_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
 	pthread_mutex_init(running_mutex,NULL);
 
+	//resume download
+	char tmpFileName[FILE_NAME_LENGTH];
+	for(int i = 0; i < total; i++){
+		memset(tmpFileName, 0, FILE_NAME_LENGTH);
+		sprintf(tmpFileName, "%s_%d_%d", filename, timestamp, i);
+		if( access( tmpFileName, F_OK ) != -1 ) {
+			exist[i] = 1;
+		}
+	}
+
 	while(end != 1){
 		end = 1;
 		for(int i = 0; i < total; i++){
@@ -87,7 +97,7 @@ int download(char* filename, int size, unsigned long int timestamp, char** nodes
 	for(int i = 0; i < total; i++){
 		char tmpFile[FILE_NAME_LENGTH];
 		memset(tmpFile, 0, FILE_NAME_LENGTH);
-		sprintf(tmpFile, "%s_%d", filename, i);
+		sprintf(tmpFile, "%s_%d_%d", filename, timestamp, i);
 
 		FILE* tmp = fopen(tmpFile,"r");
 		fseek(tmp,0,SEEK_END);
@@ -167,7 +177,7 @@ void* singleDownload(void* args){
 		//store in a file
 		char filename[FILE_NAME_LENGTH];
 		memset(filename, 0, FILE_NAME_LENGTH);
-		sprintf(filename, "%s_%d", request_args->filename, request_args->partition);
+		sprintf(filename, "%s_%d_%d", request_args->filename, request_args->timestamp, request_args->partition);
 		FILE* f = fopen(filename,"w");
 		fwrite(recv_pkg.data,recv_pkg.size,1,f);
 		fclose(f);
@@ -455,12 +465,12 @@ int upload_thd(void* arg){
 }
 
 int upload(int sockfd, p2p_request_pkg_t* pkg){
+	p2p_data_pkg_t package;
+	memset(&package, 0, sizeof(p2p_data_pkg_t));
+	//if the pkg->timestamp < current timestemp
 
 	FILE *fp;
 	if((fp = fopen(pkg->filename,"rb"))!=NULL){
-		p2p_data_pkg_t package;
-		memset(&package, 0, sizeof(p2p_data_pkg_t));
-
 		fseek(fp,0,SEEK_END);
 		int size;
 		int total = (ftell(fp)-1)/BLOCK_SIZE+1;
@@ -474,13 +484,8 @@ int upload(int sockfd, p2p_request_pkg_t* pkg){
 		fread(package.data, sizeof(char), size, fp);
 		fclose(fp);
 		package.size = size;
-
-		upload_sendpkt(&package, sockfd);
         printf("file %s #%d sended\n", pkg->filename, pkg->partition);
-
-	}else{
-		printf("Can't open file!\n");
 	}
-
+	upload_sendpkt(&package, sockfd);
 	return 1;
 }
