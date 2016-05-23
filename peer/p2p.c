@@ -6,61 +6,94 @@
 #include <pthread.h>
 #include <arpa/inet.h>
 
-#define MAX_LISTEN_NUM 30
+#define MAX_LISTEN_NUM 300
 #define LISTENING_PORT 1234
 
+pthread_mutex_t* exist_mutex;
+pthread_mutex_t* running_mutex;
+
 int download(char* filename, int size, unsigned long int timestamp, char** nodes, int numOfNodes){
-	int total = size/BLOCK_SIZE+1;
-	printf("download: split into %d parts\n", total);
+	int total = (size-1)/BLOCK_SIZE+1;
+	printf("download: size %d, split into %d parts\n", size, total);
 	int curNode = 0;
+
 	int* exist = malloc(sizeof(int) * total);
 	memset(exist, 0, sizeof(int) * total);
-
 	int end = 0;
+	int running = 0;
+	
+	exist_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
+	pthread_mutex_init(exist_mutex,NULL);
+	running_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
+	pthread_mutex_init(running_mutex,NULL);
+
+	pthread_t* download_threads = malloc(sizeof(pthread_t) * total);
+	memset(download_threads, 0, sizeof(pthread_t) * total);
+
 	while(end != 1){
 		end = 1;
-		pthread_t* download_threads = malloc(sizeof(pthread_t) * total);
 		for(int i = 0; i < total; i++){
 			//check if i exists on disk
+			pthread_mutex_lock(exist_mutex);
+			if(exist[i] != 1){
+				end = 0;
+			}
 			if(exist[i] > 0){
+				pthread_mutex_unlock(exist_mutex);
 				continue;
 			}
-			end = 0;
-			
+			exist[i] = 2;
+			pthread_mutex_unlock(exist_mutex);
+
+			// pthread_mutex_lock(running_mutex);
+			// if(running > 30){
+			// 	pthread_mutex_unlock(running_mutex);
+			// 	continue;
+			// }
+			// running++;
+			// pthread_mutex_unlock(running_mutex);
+
 			char* ip = nodes[curNode];
 			curNode = (curNode+1)%numOfNodes;
 
-			p2p_request_arg_t request_args;
-			memset(&request_args, 0, sizeof(p2p_request_arg_t));
-			request_args.ip = ip;
-			request_args.filename = filename;
-			request_args.timestamp = timestamp;
-			request_args.partition = i;
+			p2p_request_arg_t* request_args = malloc(sizeof(p2p_request_arg_t)) ;
+			memset(request_args, 0, sizeof(p2p_request_arg_t));
+			request_args->ip = ip;
+			request_args->filename = filename;
+			request_args->timestamp = timestamp;
+			request_args->partition = i;
+			request_args->exist = &(exist[i]);
+			request_args->running = &running;
+		
+			pthread_t download_thread;
+			pthread_create(&download_thread,NULL,singleDownload,(void*)request_args);
 			
-			pthread_create(download_threads+i,NULL,singleDownload,(void*)&request_args);
 		}
 
-		for(int i = 0; i < total; i++){
-			if(exist[i] == 1){
-				continue;
-			}
-			int status = 0;
-			pthread_join(download_threads[i], &status);
-			if(status == 1){
-				printf("download: partition %d downloaded successfully\n", i);
-				exist[i] = 1;
-			}
-		}
-		free(download_threads);
-		sleep(2);
+		sleep(1);
+
+		// for(int i = 0; i < total; i++){
+		// 	if(exist[i] == 1){
+		// 		continue;
+		// 	}
+		// 	int status = 0;
+		// 	pthread_join(download_threads[i], &status);
+		// 	if(status == 1){
+		// 		printf("download: partition %d downloaded successfully\n", i);
+		// 		exist[i] = 1;
+		// 	}
+		// }
 	}
+	free(exist_mutex);
+	free(running_mutex);
+	free(download_threads);
 	free(exist);
 
 	//combine temporary files
 	char recvFile[FILE_NAME_LENGTH];
 	memset(recvFile, 0, FILE_NAME_LENGTH);
 	sprintf(recvFile, "%s_recv", filename);
-	FILE* recv = fopen(recvFile,"a");
+	FILE* recv = fopen(recvFile,"w");
 	for(int i = 0; i < total; i++){
 		char tmpFile[FILE_NAME_LENGTH];
 		memset(tmpFile, 0, FILE_NAME_LENGTH);
@@ -73,8 +106,10 @@ int download(char* filename, int size, unsigned long int timestamp, char** nodes
 		char *buffer = (char*)malloc(fileLen);
 		fread(buffer,fileLen,1,tmp);
 		fclose(tmp);
+		remove(tmpFile);
 
 		fwrite(buffer,fileLen,1,recv);
+		free(buffer);
 
 		printf("download: combine file %d of length %d\n", i, fileLen);
 	}
@@ -82,74 +117,87 @@ int download(char* filename, int size, unsigned long int timestamp, char** nodes
 }
 
 void* singleDownload(void* args){
-	printf("singleDownload: start\n");
+	
 	p2p_request_arg_t* request_args = (p2p_request_arg_t*) args;
+	printf("singleDownload: start %d\n", request_args->partition);
 
 	struct sockaddr_in servaddr;
     servaddr.sin_port = htons(CONNECTION_PORT);
 	servaddr.sin_family = AF_INET;
 	servaddr.sin_addr.s_addr = inet_addr(request_args->ip);
 
-	int conn = socket(AF_INET,SOCK_STREAM,0);
-	if(conn<0) {
-    	perror("singleDownload: create socket failed 1.");
-        pthread_exit(-1);
-    }
-    if(connect(conn, (struct sockaddr*)&servaddr, sizeof(servaddr))<0){
-    	perror("singleDownload: connect failed 1.");
-    	close(conn);
-        pthread_exit(-1);
-    }
+	int conn;
+	int code = 0;
 
-    p2p_request_pkg_t pkg;
-	memset(&pkg, 0, sizeof(p2p_request_pkg_t));
-	memcpy(pkg.filename, request_args->filename, strlen(request_args->filename));
-	pkg.timestamp = request_args->timestamp;
-	pkg.partition = request_args->partition;
-	if(download_sendpkt(&pkg, conn) < 0){
-		perror("singleDownload: download_sendpkt failed 1.");
-		close(conn);
-		pthread_exit(-1);
-	}
-	int port = 0;
-	//get the new port and connect to the upload thread
-	if(recv(conn,&port,sizeof(int),0) < 0){
-		perror("singleDownload: recv failed.");
-		close(conn);
-		pthread_exit(-1);
-	}
-	close(conn);
-	servaddr.sin_port = htons(port);
-	printf("singleDownload: going to connect port %d\n", servaddr.sin_port);
-	conn = socket(AF_INET,SOCK_STREAM,0);
-	if(conn<0) {
-    	perror("singleDownload: create socket failed 2.");
-        pthread_exit(-1);
-    }
-    if(connect(conn, (struct sockaddr*)&servaddr, sizeof(servaddr))<0){
-    	perror("singleDownload: connect failed 2.");
-    	close(conn);
-        pthread_exit(-1);
-    }
-    p2p_data_pkg_t recv_pkg;
-	memset(&recv_pkg, 0, sizeof(p2p_data_pkg_t));
-    if(download_recvpkt(&recv_pkg, conn) < 0){
-		perror("singleDownload: download_recvpkt failed 2.");
-    	close(conn);
-        pthread_exit(-1);
-    }
+	while(1){
+		conn = socket(AF_INET,SOCK_STREAM,0);
+		if(conn<0) {
+	    	perror("singleDownload: create socket failed 1.");
+	    	break;
+	    }
+	    if(connect(conn, (struct sockaddr*)&servaddr, sizeof(servaddr))<0){
+	    	perror("singleDownload: connect failed 1.");
+	    	break;
+	    }
 
-	//store in a file
-	char filename[FILE_NAME_LENGTH];
-	memset(filename, 0, FILE_NAME_LENGTH);
-	sprintf(filename, "%s_%d", request_args->filename, request_args->partition);
-	FILE* f = fopen(filename,"w");
-	fwrite(recv_pkg.data,recv_pkg.size,1,f);
-	fclose(f);
-	
-	close(conn);
-	pthread_exit(1);
-	printf("singleDownload: end\n");
+	    p2p_request_pkg_t pkg;
+		memset(&pkg, 0, sizeof(p2p_request_pkg_t));
+		memcpy(pkg.filename, request_args->filename, strlen(request_args->filename));
+		pkg.timestamp = request_args->timestamp;
+		pkg.partition = request_args->partition;
+		if(download_sendpkt(&pkg, conn) < 0){
+			perror("singleDownload: download_sendpkt failed 1.");
+			break;
+		}
+		int port = 0;
+		//get the new port and connect to the upload thread
+		printf("singleDownload: getting port...\n");
+		if(recv(conn,&port,sizeof(int),0) < 0){
+			perror("singleDownload: recv failed.");
+			break;
+		}
+		close(conn);
+		servaddr.sin_port = htons(port);
+		printf("singleDownload: going to connect port %d\n", servaddr.sin_port);
+		conn = socket(AF_INET,SOCK_STREAM,0);
+		if(conn<0) {
+	    	perror("singleDownload: create socket failed 2.");
+	    	break;
+	    }
+	    if(connect(conn, (struct sockaddr*)&servaddr, sizeof(servaddr))<0){
+	    	perror("singleDownload: connect failed 2.");
+	    	break;
+	    }
+	    p2p_data_pkg_t recv_pkg;
+		memset(&recv_pkg, 0, sizeof(p2p_data_pkg_t));
+	    if(download_recvpkt(&recv_pkg, conn) < 0){
+			perror("singleDownload: download_recvpkt failed 2.");
+	    	break;
+	    }
+
+		//store in a file
+		char filename[FILE_NAME_LENGTH];
+		memset(filename, 0, FILE_NAME_LENGTH);
+		sprintf(filename, "%s_%d", request_args->filename, request_args->partition);
+		FILE* f = fopen(filename,"w");
+		fwrite(recv_pkg.data,recv_pkg.size,1,f);
+		fclose(f);
+		
+		code = 1;
+		break;
+	}
+	if(conn >= 0){
+		close(conn);
+	}
+	pthread_mutex_lock(exist_mutex);
+	(*request_args->exist) = code;
+	pthread_mutex_unlock(exist_mutex);
+	pthread_mutex_lock(running_mutex);
+	(*request_args->running)--;
+	pthread_mutex_unlock(running_mutex);
+	free(request_args);
+	printf("singleDownload: end %d\n", request_args->partition);
+    return code;
 }
 
 int download_sendpkt(p2p_request_pkg_t* pkt, int conn)
@@ -330,19 +378,20 @@ int init_listen_sock(int port){
 	    }
 	    printf("Connection accepted\n");
 
-	    struct p2p_request_pkg_t* req_pkt = malloc(sizeof(p2p_request_pkg_t));
+	    p2p_request_pkg_t* req_pkt = malloc(sizeof(p2p_request_pkg_t));
 	    memset(req_pkt, 0, sizeof(p2p_request_pkg_t));
 
 	    upload_recvreqpkt(req_pkt, connfd);
 	    	
-		printf("from ip:%s | port:%d\n", inet_ntoa(cli_addr.sin_addr), cli_addr.sin_port);
+		printf("from ip:%s | port:%d | partition:%d\n", inet_ntoa(cli_addr.sin_addr), cli_addr.sin_port, req_pkt->partition);
 
-		send_thread_arg_t send_arg;
-		send_arg.conn = connfd;
-		send_arg.req_info = req_pkt;
+		send_thread_arg_t* send_arg = malloc(sizeof(send_thread_arg_t));
+		memset(send_arg, 0, sizeof(send_thread_arg_t));
+		send_arg->conn = connfd;
+		send_arg->req_info = req_pkt;
 
 		pthread_t* upload_threads = malloc(sizeof(pthread_t));
-		pthread_create(upload_threads,NULL,upload_thd,(void*)&send_arg);
+		pthread_create(upload_threads,NULL,upload_thd,(void*)send_arg);
 		//upload(connfd, req_pkt);
 	}
 
@@ -378,33 +427,30 @@ int upload_thd(void* arg){
 
     if(send(send_arg->conn , &port , sizeof(int) , 0) < 0){
         puts("Send failed\n");
+        close(send_arg->conn);
         return -1;
     }
     close(send_arg->conn);
-
-    printf("111\n");
-
     socklen_t cli_len = sizeof(struct sockaddr_in);
 
 	int connfd = accept(up_conn, (struct sockaddr *)&cli_addr, (socklen_t*)&cli_len);
 	if (connfd < 0)
 	{
 	    perror("accept failed");
+	    close(connfd);
 	    return 1;
 	}
 	printf("Connection accepted\n");
 
-
-    printf("222\n");
 	upload(connfd, send_arg->req_info);
-
-	printf("777\n");
 	close(connfd);
     // if(connect(conn, (struct sockaddr*)&servaddr, sizeof(servaddr))<0){
     // 	perror("singleDownload: connect failed 1.");
     // 	close(conn);
     //     pthread_exit(-1);
     // }
+    free(send_arg->req_info);
+    free(send_arg);
 }
 
 int upload(int sockfd, p2p_request_pkg_t* pkg){
@@ -412,20 +458,28 @@ int upload(int sockfd, p2p_request_pkg_t* pkg){
 	printf("part:%d\n", pkg->partition);
 
 	FILE *fp;
-	if((fp = fopen(pkg->filename,"r"))!=NULL){
+	if((fp = fopen(pkg->filename,"rb"))!=NULL){
 		p2p_data_pkg_t package;
 		memset(&package, 0, sizeof(p2p_data_pkg_t));
 
-		fseek(fp, (pkg->partition-1) * sizeof(char) * BLOCK_SIZE, SEEK_SET);
-		fread(package.data, sizeof(char), BLOCK_SIZE, fp);
+		fseek(fp,0,SEEK_END);
+		int size;
+		int total = (ftell(fp)-1)/BLOCK_SIZE+1;
+		if(total-1 == pkg->partition){
+			size = (ftell(fp)-1)%BLOCK_SIZE+1;
+		}else{
+			size = BLOCK_SIZE;
+		}
 
-		printf("%s\n", package.data);
+		fseek(fp, pkg->partition * BLOCK_SIZE, SEEK_SET);
+		fread(package.data, sizeof(char), size, fp);
 		fclose(fp);
 
-		package.size = strlen(package.data);
+		package.size = size;
+		printf("%d\n", package.size);
 		 
 		upload_sendpkt(&package, sockfd);
-		
+		printf("%s\n", package.data);
         printf("file sended\n");
 
 	}else{
