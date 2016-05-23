@@ -1,7 +1,7 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
-#define BLOCK_SIZE 400//4096*4
+#define BLOCK_SIZE 32768
 
 #define FILE_NAME_LENGTH 128
 
