@@ -33,6 +33,10 @@ typedef struct send_thread_arg
 
 int download(char* filename, int size, unsigned long int timestamp, char** nodes, int numOfNodes);
 
+int start_listening(int port);
+
+//////////////////////////////////
+
 void* singleDownload(void* args);
 
 int download_sendpkt(p2p_request_pkg_t* pkt, int conn);

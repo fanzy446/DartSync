@@ -348,7 +348,7 @@ int upload_recvreqpkt(p2p_request_pkg_t* pkt, int conn)
     return -1;
 }
 
-int init_listen_sock(int port){
+int start_listening(int port){
 	int listenfd, connfd, n;
 	struct sockaddr_in cli_addr, serv_addr;
 	socklen_t clilen;
