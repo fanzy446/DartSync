@@ -16,8 +16,8 @@ typedef struct p2p_data_pkg{
 } p2p_data_pkg_t;
 
 typedef struct p2p_request_arg{
-	char ip[32];
-	char filename[FILE_NAME_LENGTH];
+	char* ip;
+	char* filename;
 	unsigned long int timestamp;
 	int partition;
 	int* exist;
@@ -28,7 +28,7 @@ typedef struct send_thread_arg
 {
 	int conn;
 	int* running;
-	p2p_request_arg_t *req_info;
+	struct p2p_request_arg *req_info;
 }send_thread_arg_t;
 
 int download(char* filename, int size, unsigned long int timestamp, char** nodes, int numOfNodes);
@@ -43,7 +43,7 @@ int upload_sendpkt(p2p_data_pkg_t* pkt, int conn);
 
 int upload_recvreqpkt(p2p_request_pkg_t* pkt, int conn);
 
-void* upload_thd(void* arg);
+int upload_thd(void* arg);
 
 int upload(int sockfd, p2p_request_pkg_t* pkg); 
 
