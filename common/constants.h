@@ -9,4 +9,16 @@
 
 #define TEST 2
 
+#define TRACKERPORT 5008
+
+#define IP_LEN 45
+
+#define HEARTRATE 600
+
+
+// MUST REDEFINE THE FOLLOWING- unknown what to set them as right now
+#define PROTOCOL_LEN 0
+#define RESERVED_LEN 8
+#define FILE_NAME_LEN 100 
+
 #endif
