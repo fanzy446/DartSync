@@ -5,10 +5,8 @@
 #include <sys/socket.h>    //socket
 #include <arpa/inet.h> //inet_addr
 
-//argv[1] as the uploader IP address
 int main(int argc , char *argv[])
 {
-	printf("uploader:%s\n",argv[1]);
  	char* fileName = "test_large.txt";
 
 	FILE *f = fopen(fileName,"r");
@@ -17,13 +15,9 @@ int main(int argc , char *argv[])
 	fclose(f);
 
 	unsigned long int timestamp = 1111111;
-	char** nodes = malloc(sizeof(char*));
-	if(argv[1]!=NULL){
-		nodes[0] = argv[1];
-	}else{
-		nodes[0] = "127.0.0.1";
-	}
-	//nodes[0] = "127.0.0.1";
+	char** nodes = malloc(sizeof(char*)*2);
+	// nodes[0] = "129.170.212.87";
+	nodes[0] = "127.0.0.1";
 
 	download(fileName, size, timestamp, nodes, 1);
 
