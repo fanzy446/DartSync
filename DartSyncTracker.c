@@ -23,6 +23,7 @@
 /***************************************************************/
 ts_peertable_t *trackerpeertable;
 pthread_mutex_t *trackpeertable_mutex;
+//file_t *filetable;
 
 int tracker_keepAlive(tracker_peer_t *peer);
 int tracker_listenForPeers();
@@ -76,20 +77,20 @@ int tracker_listenForPeers(){
 	}
 
 	while (1){
-		newpeer = accept(listensd, (struct sockaddr*) &peer_addr, &peer_addr_len);
+		if ((newpeer = accept(listensd, (struct sockaddr*) &peer_addr, &peer_addr_len)) != -1){
+			printf("New peer connected\n");
+			//create a new peer entry
+			tracker_peer_t *newPeerEntry = malloc(sizeof(tracker_peer_t));
+			newPeerEntry->sockfd = newpeer;
+			newPeerEntry->next = NULL; 
+			memcpy(newPeerEntry->ip, inet_ntoa(peer_addr.sin_addr), IP_LEN);
+			newPeerEntry->last_time_stamp = 0;
+			tracker_peertableadd(trackerpeertable, newPeerEntry);
 
-		//create a new peer entry
-		tracker_peer_t *newPeerEntry = malloc(sizeof(tracker_peer_t));
-		newPeerEntry->sockfd = newpeer;
-		newPeerEntry->next = NULL; 
-		memcpy(newPeerEntry->ip, inet_ntoa(peer_addr.sin_addr), IP_LEN);
-		newPeerEntry->last_time_stamp = 0;
-		tracker_peertableadd(trackerpeertable, newPeerEntry);
-
-		//create a new handshake for the connection
-		pthread_t handshake_thread;
-		pthread_create(&handshake_thread, NULL, tracker_Handshake, (void *) newPeerEntry); 
-
+			//create a new handshake for the connection
+			pthread_t handshake_thread;
+			pthread_create(&handshake_thread, NULL, tracker_Handshake, (void *) newPeerEntry); 
+		}
 	}
 
 }
@@ -153,12 +154,14 @@ void* tracker_Handshake(void *arg){
 		//Handle depending on segment type
 		switch(segment.type){
 			case REGISTER: 
+
 				//tracker sends back packet informing Interval (heartrate) and peice length for the peer to set up 
 				// (tracker- acceptregister())
 				break; 
 			case KEEP_ALIVE: 
 				tracker_keepAlive(peer);
 				break; 
+
 			case FILE_UPDATE: 
 				// compare received file table with one it already has
 				// if update is necessary
@@ -167,6 +170,11 @@ void* tracker_Handshake(void *arg){
 				break; 
 		}
 	}
+}
+
+int tracker_acceptRegister(){
+	return 0; 
+
 }
 
 

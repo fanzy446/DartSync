@@ -8,6 +8,7 @@
 #include <netdb.h> 
 #include <unistd.h>
 #include "common/constants.h"
+#include "common/seg.h"
 
 
 /***************************************************************/
@@ -16,10 +17,17 @@
 int interval; 
 int trackerconn; 
 
+int peer_connToTracker();
+int peer_disconnectFromTracker(int trackerconn);
+void *sendheartbeat(void *arg);
+int peer_sendregister();
+int seghandler();
+
 int main(){
 
 	//Establish connection to tracker
 	trackerconn = peer_connToTracker();
+
 
 	//send register
 
@@ -55,7 +63,7 @@ int peer_connToTracker(){
 		printf("Connection to tracker failed\n");
 		return -1;
 	}
-
+	printf("connection established\n");
 	return trackerconn;
 
 }
@@ -72,8 +80,19 @@ void *sendheartbeat(void *arg){
 
 	while (1){
 		sleep(interval);
-		peer_sendseg(trackerconn, segment);
+
+		peer_sendseg(trackerconn, &heartbeatseg);
 	}
 	return NULL;
+}
+int seghandler(){
+	return 0; 
+}
+
+int peer_sendregister(){
+	//create packet
+
+	//
+	return 0; 
 }
 
