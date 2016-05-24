@@ -1,38 +1,68 @@
-//FILE: common/peertable.h 
-//
-//Description: 
-//
-//Date: May 18, 2016
-
-
 #ifndef FILEMONITOR_H 
 #define FILEMONITOR_H
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <linux/inotify.h>
+#include <sys/stat.h>
+#include <time.h>
+#include <dirent.h>
+#include <unistd.h>
+#include <string.h>
+#include <pthread.h>
+#include <time.h>
 
-watchDirectory( char* directory); //Begin to watch a directory
+/*
+#include "../common/filetable.h"
+*/
 
-readConfigFile( char* filename ); //Read config file from disk
+#define MAX_FILES 1024
+#define LEN_FILE_NAME 1024
 
-fileAdded(char* filename);
+/*
+*	STRUCT
+*/
 
-fileModified(char* filename );
+//@deprecate
+typedef struct {
+	char* filepath;
+	long size;
+	long lastModifyTime;
+} FileInfo;
 
-fileDeleted(char* filename);
+//@deprecate
+typedef struct {
+	int length;
+	FileInfo** list;
+} FileInfoList;
 
-getAllFilesInfo(); //Get all filenames/sizes/timestamps in the directory 7. getFileInfo(char* filename) //Get information of a specific file
 
-freeAll(); //Free all memory.
+/*
+*	INTERFACES
+*/
+void watchDirectory(char* directory);
+char* readConfigFile(char* filename);
+FileInfoList* getAllFilesInfo(); // need to be FileTable
+void printAllFilesInfo();
+void freeFileInfoList(FileInfoList*);
+FileInfo* getFileInfo(char* filename);
+void* monitor(void* arg);
 
-blockFileAddListenning();
+/*
+*	SUPPORT FUNCTIONS
+*/
+int isInFileInfoList(char* filename, FileInfoList* files);
 
-unblockFuleAddListenning();
+//FileTable* createTable();
+//Node* createNode(char* filename);
 
-blockFileWriteListenning();
+//extern void(*fileAdded)(char*);
+//void fileAdded(char* filename);
+//void fileModified(char* filename);
+//void fileDeleted(char* filename);
 
-unblockFileWriteListenning();
 
-blockFileDeleteListenning();
-
-unblockFileDeleteListenning();
 
 #endif

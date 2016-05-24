@@ -1,32 +1,60 @@
-//FILE: common/peertable.h 
-//
-//Description: 
-//
-//Date: May 18, 2016
+#ifndef FILETABLE_h
+#define FILETABLE_h
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <linux/inotify.h>
+#include <sys/stat.h>
+#include <time.h>
+#include <dirent.h>
+#include <unistd.h>
+#include <string.h>
+#include <pthread.h>
+#include <time.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <sys/socket.h>
 
-#ifndef FILETABLE_H 
-#define FILETABLE_H
+#define MAX_PEERS 16
 
+/*
+*	STRUCT
+*/
 
-//each file can be represented as a node in file table
 typedef struct node{
-     //the size of the file
-     int size;
-     //the name of the file
-     char *name;
-     //the timestamp when the file is modified or created
-     unsigned long int timestamp;
-     //pointer to build the linked list
-     struct node *pNext;
-     //for the file table on peers, it is the ip address of the peer
-     //for the file table on tracker, it records the ip of all peers which has the
-     //newest edition of the file
-     char *newpeerip;
-}Node,*pNode;
+	int size;
+	char* name;
+	unsigned long timestamp;
+	struct node *pNext;
+	int peernum;
+	char** peerip;
+} Node, *pNode;
 
 typedef struct filetable{
 	struct node *head;
-}filetable_t;
+} FileTable;
+
+
+/*
+*	INTERFACES
+*/
+FileTable* createTable();
+void destroyTable(FileTable*);
+void addNewNode(FileTable* table, char* filename, int size, unsigned long timestamp);
+int deleteNode(FileTable* table, char* filename);
+int modifyNode(FileTable* table, char* filename, int size, unsigned long timestamp);
+
+
+/*
+*	SUPPORT FUNCTIONS
+*/
+int getMyIP(char* ip);
+Node* createNode(char* filename, int size, unsigned long timestamp);
+
+
+
 
 #endif
