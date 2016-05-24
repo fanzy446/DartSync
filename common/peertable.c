@@ -3,8 +3,6 @@
 #include <stdlib.h> 
 #include <stdio.h>
 
-
-
 ts_peertable_t *tracker_peertablecreate(){
 	ts_peertable_t *trackerpeertable = malloc(sizeof(ts_peertable_t));
 	trackerpeertable->head = NULL;
