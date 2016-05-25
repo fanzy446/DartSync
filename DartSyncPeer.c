@@ -16,6 +16,7 @@
 /***************************************************************/
 int interval; 
 int trackerconn; 
+FileTable *table;
 
 int peer_connToTracker();
 int peer_disconnectFromTracker(int trackerconn);
@@ -25,11 +26,26 @@ int seghandler();
 
 int main(){
 
+
+	//Make filetable
+	char *path = readConfigFile("./peer/config.ini");
+	table = initTable(readConfigFile(path));
+	watchDirectory(path);
+
 	//Establish connection to tracker
 	trackerconn = peer_connToTracker();
 
+	//sendsregister()
+	//receiveTrackerState()
 
-	//send register
+
+	pthread_t fileMonitor_thread;
+	pthread_create(&fileMonitor_thread, NULL, monitor, (void *) table);
+
+	while (1){
+		//Listen to tracker
+		
+	}
 
 	return 0; 
 }
@@ -89,10 +105,63 @@ int seghandler(){
 	return 0; 
 }
 
-int peer_sendregister(){
-	//create packet
+int sendregister(){
+	ptp_peer_t registerPacket;
+	registerPacket.type = REGISTER;
+	peer_sendseg(trackerconn, &registerPacket);
+}
 
-	//
-	return 0; 
+int receiveTrackerState(){
+
+}
+
+void peer_compareFiletables(ptp_tracker_t segment){
+	/////
+
+	Node *currNode = table->head;
+
+	for (int i = 0; i < segment.file_table_size, i++){
+		currNode = table->head
+		while (currNode != NULL){
+			if (strcmp(currNode->name, segment.sendNode[i].name) == 0){
+				if (currNode->timestamp == segment.sendNode[i].timestamp){
+					break;
+				}
+
+				else if (currNode->timestamp > segment.sendNode[i].timestamp){
+					//dont send our filetable to tracker as it happens when file is updated in local and peer has sent notification but tracker haven't updated
+					break;
+				}
+				else if (currNode->timestamp < segment.sendNode[i]timestamp){
+					//update our filetable/ask to download
+					modifyNode(table, currNode->name, currNode->size, currNode->timestamp);
+					// block listening modify
+					// download(char* filename, int size, unsigned long int timestamp, char** nodes, int numOfNodes);
+					// unblock
+					break;
+				}
+
+			}
+		}
+		if (currNode == NULL){
+			addNewNode(table, currNode->name, currNode->size, currNode->timestamp);
+			// block listening add
+			// download(char* filename, int size, unsigned long int timestamp, char** nodes, int numOfNodes);
+			// unblock
+		}
+	}
+
+	currNode = table->head
+	while (currNode != NULL){
+		for (int i = 0; i < segment.file_table_size, i++){
+			if (strcmp(currNode->name, segment.sendNode[i].name) == 0){
+				break;
+			}
+		}
+		deleteNode(table, currNode->name);
+		// delete the actual file
+
+	}
+
 }
 

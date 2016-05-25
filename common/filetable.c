@@ -43,11 +43,6 @@ void destroyTable(FileTable* table){
 	Node* curnode = table->head, *tempnode = NULL;
 	int i;
 	while(curnode != NULL){
-		free(curnode->name);
-		for (i=0; i<curnode->peernum; i++){
-			free(curnode->peerip[i]);
-		}
-		free(curnode->peerip);
 		tempnode = curnode->pNext;
 		free(curnode);
 		curnode = tempnode;
@@ -89,13 +84,6 @@ int deleteNode(FileTable* table, char* filename){
 		prevnode->pNext = curnode->pNext;
 	}
 	
-	free(curnode->name);
-	//printf("%s will be deleted\n", curnode->name);
-	int i;
-	for (i=0; i<curnode->peernum; i++){
-		free(curnode->peerip[i]);
-	}
-	free(curnode->peerip);
 	free(curnode);
 	return 1;
 }
@@ -127,7 +115,7 @@ void printTable(FileTable* table){
 	}
 }
 
-int getMyIP(char* ip){
+char *getMyIP(){
 	char hostname_buf[50];
 	if (gethostname(hostname_buf, sizeof(hostname_buf)) >= 0){
 		struct hostent *he;
@@ -136,25 +124,21 @@ int getMyIP(char* ip){
 		}
 		struct in_addr **addr_list;
 		addr_list = (struct in_addr **) he->h_addr_list;
-		strcpy(ip, inet_ntoa(*addr_list[0]));
-		return 1;
+		return inet_ntoa(*addr_list[0]);
 	}
-	return 0;
 }
 
 Node* createNode(char* filename, int size, unsigned long timestamp){
 	Node* node = (Node*) malloc(sizeof(Node));
 	node->size = size;
-	node->name = (char*) malloc(sizeof(char)*strlen(filename));
 	strcpy(node->name, filename);
 	//node->name = filename;
 	node->timestamp = timestamp;
 	node->pNext = NULL;
 	node->peernum = 1;
-	node->peerip = (char**)malloc(sizeof(char*)*MAX_PEERS);
-	node->peerip[0] = (char*)malloc(sizeof(char)*100);
-	getMyIP(node->peerip[0]);
+	strcpy(node->peerip[0], getMyIP())
 	return node;
 }
+
 
 

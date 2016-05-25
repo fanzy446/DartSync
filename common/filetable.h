@@ -18,8 +18,6 @@
 #include <netdb.h>
 #include <sys/socket.h>
 
-#define MAX_PEERS 16
-#define LEN_FILE_NAME 1024
 
 /*
 *	STRUCT
@@ -27,16 +25,22 @@
 
 typedef struct node{
 	int size;
-	char* name;
+	char name[LEN_FILE_NAME];
 	unsigned long timestamp;
 	struct node *pNext;
 	int peernum;
-	char** peerip;
+	char peerip[MAX_PEERS][IP_LEN];
 } Node, *pNode;
 
 typedef struct filetable{
+	int numNodes; 
 	struct node *head;
 } FileTable, filetable_t;
+
+
+
+
+
 
 
 /*
@@ -54,7 +58,7 @@ int modifyNode(FileTable* table, char* filename, int size, unsigned long timesta
 */
 FileTable* createTable();
 void printTable(FileTable* table);
-int getMyIP(char* ip);
+char* getMyIP();
 Node* createNode(char* filename, int size, unsigned long timestamp);
 
 

@@ -160,7 +160,8 @@ void* tracker_Handshake(void *arg){
 		//Handle depending on segment type
 		switch(segment.type){
 			case REGISTER: 
-
+				tracker_acceptRegister();
+				//send back entire file table
 				//tracker sends back packet informing Interval (heartrate) and peice length for the peer to set up 
 				// (tracker- acceptregister())
 				break; 
@@ -169,6 +170,7 @@ void* tracker_Handshake(void *arg){
 				break; 
 
 			case FILE_UPDATE: 
+				//
 				// compare received file table with one it already has
 				// if update is necessary
 					//update
@@ -179,8 +181,26 @@ void* tracker_Handshake(void *arg){
 }
 
 int tracker_acceptRegister(){
-	return 0; 
+	ptp_tracker_t segment;
+	segment.interval = HEARTRATE;
 
+	Node *currNode;
+	int i;
+	currNode = filetable->head;
+	while (currNode != NULL){
+		segment.sendNode[i].name = currNode->name; 
+		segment.sendNode[i].size = currNode->size;
+		segment.sendNode[i].timestamp = currNode->timestamp;
+		segment.peernum = c;
+		segment.peerip = currNode->peerip; 
+	}
+
+	return 0;
+
+}
+
+void tracker_compareFiletables(){
+	
 }
 
 int broadcastUpdates(){

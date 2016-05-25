@@ -27,7 +27,7 @@ typedef struct segment_peer {
   // the number of files in the local file table -- optional
   int file_table_size;
   // file table of the client -- your own design
-  //file_t file_table;
+  Node sendNode[MAX_FILES];
 }ptp_peer_t;
 
 
@@ -41,7 +41,7 @@ int piece_len;
 // file number in the file table -- optional
 int file_table_size;
 // file table of the tracker -- your own design
-//file_t file_table;
+Node sendNode[MAX_FILES];
 } ptp_tracker_t;
 
 int tracker_sendseg(int peerconn, ptp_tracker_t *segment);
