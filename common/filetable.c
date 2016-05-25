@@ -6,8 +6,41 @@ FileTable* createTable(){
 	return table;
 }
 
+FileTable* initTable(char* directory){
+	//printf("initTable\n" );
+	FileTable* table = createTable();
+	char fullpath[1024];
+	DIR* d;
+	struct dirent *dir;
+	struct stat st;
+
+	d = opendir(directory);
+	if (d == NULL){
+		printf("%s\n", strerror(errno));
+	}
+
+	if (d){
+		while ((dir = readdir(d)) != NULL){
+			sprintf(fullpath, "%s/%s", directory, dir->d_name);
+			stat(fullpath, &st);
+			if (!strcmp(dir->d_name, ".") || !strcmp(dir->d_name, "..")){
+				continue;
+			}
+      		// CURRENTLY ONLY SUPPORT REGULAR FILES
+			if (S_ISREG(st.st_mode)){
+				//printf("%s\n", fullpath);
+				//char* fname = (char*) malloc(sizeof(char)*strlen(dir->d_name));
+				//strcpy(fname, dir->d_name);
+				addNewNode(table, dir->d_name, (int) st.st_size, (unsigned long) st.st_ctime);
+			}
+		}
+	}
+	closedir(d);
+	return table;
+}
+
 void destroyTable(FileTable* table){
-	Node* curnode = table->head, *tempnode;
+	Node* curnode = table->head, *tempnode = NULL;
 	int i;
 	while(curnode != NULL){
 		free(curnode->name);
@@ -24,26 +57,40 @@ void destroyTable(FileTable* table){
 
 
 void addNewNode(FileTable* table, char* filename, int size, unsigned long timestamp){
-	Node* curnode = table->head, *prevnode;
+	//printf("addNewNode for %s\n", filename);
+	Node* curnode = table->head, *prevnode = NULL;
 	while(curnode != NULL){
 		prevnode = curnode;
 		curnode = curnode->pNext;
 	}
 	Node* newnode = createNode(filename, size, timestamp);
-	prevnode->pNext = newnode;
+	if (prevnode == NULL){
+		table->head = newnode;
+	}else{
+		prevnode->pNext = newnode;
+	}
+	
 }
 
 int deleteNode(FileTable* table, char* filename){
-	Node* curnode = table->head, *prevnode;
-	while(curnode != NULL && !strcmp(curnode->name, filename)){
+	Node* curnode = table->head, *prevnode = NULL;
+	while(curnode != NULL && strcmp(curnode->name, filename)){
 		prevnode = curnode;
 		curnode = curnode->pNext;
 	}
 	if (curnode == NULL){
+		printf("no such file to be deleted\n");
 		return 0;
 	}
-	prevnode->pNext = curnode->pNext;
+	if (prevnode == NULL){
+		// target node is 1st item
+		table->head = curnode->pNext;
+	}else{
+		prevnode->pNext = curnode->pNext;
+	}
+	
 	free(curnode->name);
+	//printf("%s will be deleted\n", curnode->name);
 	int i;
 	for (i=0; i<curnode->peernum; i++){
 		free(curnode->peerip[i]);
@@ -55,7 +102,7 @@ int deleteNode(FileTable* table, char* filename){
 
 int modifyNode(FileTable* table, char* filename, int size, unsigned long timestamp){
 	Node* curnode = table->head;
-	while(curnode != NULL && !strcmp(curnode->name, filename)){
+	while(curnode != NULL && strcmp(curnode->name, filename)){
 		curnode = curnode->pNext;
 	}
 	if (curnode == NULL){
@@ -69,6 +116,16 @@ int modifyNode(FileTable* table, char* filename, int size, unsigned long timesta
 /*
 *	SUPPORT FUNCTIONS
 */
+
+void printTable(FileTable* table){
+	printf("printTable shows all nodes in a table:\n");
+	Node* curnode = table->head, *tempnode;
+	int i;
+	while(curnode != NULL){
+		printf("Name:%s, Size:%ld, Timestamp:%ld \n", curnode->name, curnode->size, curnode->timestamp);
+		curnode = curnode->pNext;
+	}
+}
 
 int getMyIP(char* ip){
 	char hostname_buf[50];
@@ -88,7 +145,9 @@ int getMyIP(char* ip){
 Node* createNode(char* filename, int size, unsigned long timestamp){
 	Node* node = (Node*) malloc(sizeof(Node));
 	node->size = size;
-	node->name = filename;
+	node->name = (char*) malloc(sizeof(char)*strlen(filename));
+	strcpy(node->name, filename);
+	//node->name = filename;
 	node->timestamp = timestamp;
 	node->pNext = NULL;
 	node->peernum = 1;
@@ -98,13 +157,4 @@ Node* createNode(char* filename, int size, unsigned long timestamp){
 	return node;
 }
 
-/*
-int main(){
-	char* ip = (char*)malloc(sizeof(char)*100);
-	getMyIP(ip);
-	printf("%s\n", ip);
 
-	FileTable* table = createTable();
-
-}
-*/
