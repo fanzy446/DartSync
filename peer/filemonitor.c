@@ -144,6 +144,7 @@ int isInFileInfoList(char* filename, FileInfoList* files){
 }
 
 void* monitor(void* arg){
+  // takes filetable as an arg
   int length, i = 0, isInDir;
   char buffer[EVENT_BUF_LEN];
   while (1){
@@ -236,3 +237,19 @@ void* monitor(void* arg){
 
 }
 
+void fileAdded(FileTable* table, char* filename){
+  FileInfo *fi = getFileInfo(filename);
+  addNewNode(table, fi->filepath, fi->size, fi->lastModifyTime);
+  //sendtable
+}
+
+void fileModified(FileTable* table, char* filename){
+  FileInfo *fi = getFileInfo(filename);
+  modifyNode(table, fi->filepath, fi->size, fi->lastModifyTime);
+  //sendtable
+}
+
+void fileDeleted(FileTable* table, char* filename){
+  deleteNode(table, filename);
+  //sendtable
+}

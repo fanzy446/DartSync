@@ -19,6 +19,7 @@
 #include <sys/socket.h>
 
 #define MAX_PEERS 16
+#define LEN_FILE_NAME 1024
 
 /*
 *	STRUCT
@@ -35,13 +36,13 @@ typedef struct node{
 
 typedef struct filetable{
 	struct node *head;
-} FileTable;
+} FileTable, filetable_t;
 
 
 /*
 *	INTERFACES
 */
-FileTable* createTable();
+FileTable* initTable(char* directory);
 void destroyTable(FileTable*);
 void addNewNode(FileTable* table, char* filename, int size, unsigned long timestamp);
 int deleteNode(FileTable* table, char* filename);
@@ -51,6 +52,8 @@ int modifyNode(FileTable* table, char* filename, int size, unsigned long timesta
 /*
 *	SUPPORT FUNCTIONS
 */
+FileTable* createTable();
+void printTable(FileTable* table);
 int getMyIP(char* ip);
 Node* createNode(char* filename, int size, unsigned long timestamp);
 
