@@ -15,6 +15,8 @@
 
 #define HEARTRATE 600
 
+#define MAX_PEERS 16
+
 
 // MUST REDEFINE THE FOLLOWING- unknown what to set them as right now
 #define PROTOCOL_LEN 0
