@@ -15,6 +15,8 @@
 #include <time.h>
 
 #include "../common/filetable.h"
+#include "../common/seg.h"
+//#include "../common/p2p.h"
 
 
 #define MAX_FILES 1024
@@ -46,16 +48,13 @@ void printAllFilesInfo();
 void freeFileInfoList(FileInfoList*);
 FileInfo* getFileInfo(char* filename);
 void* monitor(void* arg);
+void setTrackerConn(int conn);
+void sendTable(FileTable* table);
 
 /*
 *	SUPPORT FUNCTIONS
 */
 int isInFileInfoList(char* filename, FileInfoList* files);
-
-//FileTable* createTable();
-//Node* createNode(char* filename);
-
-//extern void(*fileAdded)(char*);
 void fileAdded(FileTable* table, char* filename);
 void fileModified(FileTable* table, char* filename);
 void fileDeleted(FileTable* table, char* filename);

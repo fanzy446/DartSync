@@ -4,8 +4,13 @@
 #define EVENT_BUF_LEN     ( 1024 * ( EVENT_SIZE + 16 ) )
 
 char* dirPath;
+int tracker_conn; // used to send filetable
 int fd;
 int wd;
+
+/*
+* INTERFACES
+*/
 
 /*
 * Begin to watch a directory using inotify
@@ -143,7 +148,12 @@ int isInFileInfoList(char* filename, FileInfoList* files){
   return 0;
 }
 
+
+/*
+* Thread to monitor changes in files under a directory
+*/
 void* monitor(void* arg){
+  FileTable* table = (FileTable*) arg;
   // takes filetable as an arg
   int length, i = 0, isInDir;
   char buffer[EVENT_BUF_LEN];
@@ -160,6 +170,7 @@ void* monitor(void* arg){
       struct inotify_event *event = ( struct inotify_event * ) &buffer[ i ];
       if ( event->len ) {
         isInDir = isInFileInfoList(event->name, files);
+        freeFileInfoList(files);
 
         if (*(event->name)=='.'){
           // IGNORE AS IT IS HIDDEN FILE
@@ -168,7 +179,7 @@ void* monitor(void* arg){
             // IGNORE FOR NOW AS WE DON'T KEEP TRACK DIRECTORIES
           }
           else {
-            //fileAdded(event->name);
+            fileAdded(table, event->name);
             printf( " File %s added.\n", event->name );
           }
         }
@@ -177,7 +188,7 @@ void* monitor(void* arg){
             // IGNORE FOR NOW AS WE DON'T KEEP TRACK DIRECTORIES
           }
           else {
-            //fileDeleted(event->name);
+            fileDeleted(table, event->name);
             printf( " File %s deleted.\n", event->name );
           }
         }
@@ -186,7 +197,7 @@ void* monitor(void* arg){
             // IGNORE FOR NOW AS WE DON'T KEEP TRACK DIRECTORIES
           }
           else {
-            //fileModified(event->name);
+            fileModified(table, event->name);
             printf( " File %s modified.\n", event->name );
           }
         }
@@ -195,7 +206,7 @@ void* monitor(void* arg){
             // IGNORE FOR NOW AS WE DON'T KEEP TRACK DIRECTORIES
           }
           else {
-            //fileDeleted(event->name);
+            fileDeleted(table, event->name);
             printf( " File %s deleted.\n", event->name );
           }
         }
@@ -205,10 +216,10 @@ void* monitor(void* arg){
           }
           else {
             if (isInDir){
-              //fileModified(event->name);
+              fileModified(table, event->name);
               printf( " File %s modified.\n", event->name );
             }else{
-              //fileAdded(event->name);
+              fileAdded(table, event->name);
               printf( " File %s added.\n", event->name );
             }
             
@@ -219,7 +230,7 @@ void* monitor(void* arg){
             // IGNORE FOR NOW AS WE DON'T KEEP TRACK DIRECTORIES
           }
           else {
-            //fileModified(event->name);
+            fileModified(table, event->name);
             if (isInDir){
               printf( " File %s modified.\n", event->name );
 
@@ -237,6 +248,14 @@ void* monitor(void* arg){
 
 }
 
+void setTrackerConn(int conn){
+  tracker_conn = conn;
+}
+
+/*
+* SUPPORT FUNCTIONS
+*/
+
 void fileAdded(FileTable* table, char* filename){
   FileInfo *fi = getFileInfo(filename);
   addNewNode(table, fi->filepath, fi->size, fi->lastModifyTime);
@@ -253,3 +272,4 @@ void fileDeleted(FileTable* table, char* filename){
   deleteNode(table, filename);
   //sendtable
 }
+
