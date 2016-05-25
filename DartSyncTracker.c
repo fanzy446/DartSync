@@ -21,9 +21,10 @@
 /***************************************************************/
 //declare global variables
 /***************************************************************/
-ts_peertable_t *trackerpeertable;
-pthread_mutex_t *trackpeertable_mutex;
-//file_t *filetable;
+ts_peertable_t *peertable;
+FileTable *filetable;
+pthread_mutex_t *peertable_mutex;
+pthread_mutex_t *filetable_mutex;
 
 int tracker_keepAlive(tracker_peer_t *peer);
 int tracker_listenForPeers();
@@ -33,16 +34,21 @@ void* tracker_Handshake(void *arg);
 
 int main(){
 
-	//initialize peer table as empty
-	trackerpeertable = tracker_peertablecreate();
+	//initialize peer and file table as empty
+	peertable = tracker_peertablecreate();
+	filetable = createTable();
 
-	trackpeertable_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
-	pthread_mutex_init(trackpeertable_mutex, NULL);
+	//create mutexes for peertable and filetable
+	peertable_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
+	pthread_mutex_init(peertable_mutex, NULL);
+	filetable_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
+	pthread_mutex_init(filetable_mutex, NULL);
 
 	//Start listenheartbeat thread 
 	pthread_t monitorAlive_thread;
 	pthread_create(&monitorAlive_thread, NULL, tracker_monitorAlive, (void *) 0);
 
+	//Add peer connections and create handshake threads for each of them
 	tracker_listenForPeers();
 
 }
@@ -85,7 +91,7 @@ int tracker_listenForPeers(){
 			newPeerEntry->next = NULL; 
 			memcpy(newPeerEntry->ip, inet_ntoa(peer_addr.sin_addr), IP_LEN);
 			newPeerEntry->last_time_stamp = 0;
-			tracker_peertableadd(trackerpeertable, newPeerEntry);
+			tracker_peertableadd(peertable, newPeerEntry);
 
 			//create a new handshake for the connection
 			pthread_t handshake_thread;
@@ -104,19 +110,19 @@ void* tracker_monitorAlive(void *arg){
 		gettimeofday(&currentTime, NULL);
 
 		//Iterate through all presumed to be 'alive' peers
-		pthread_mutex_lock(trackpeertable_mutex);
-		tracker_peer_t *peer = trackerpeertable->head; 
+		pthread_mutex_lock(peertable_mutex);
+		tracker_peer_t *peer = peertable->head; 
 		while (peer != NULL){
 			//remove all dead peers
 			if (currentTime.tv_sec - peer->last_time_stamp > HEARTRATE && peer->last_time_stamp != 0){
 				tracker_peer_t *toRemove = peer; 
 				peer = peer->next;
-				tracker_peertableremove(trackerpeertable, toRemove);
+				tracker_peertableremove(peertable, toRemove);
 				continue; 
 			}
 			peer = peer->next;
 		}
-		pthread_mutex_unlock(trackpeertable_mutex);
+		pthread_mutex_unlock(peertable_mutex);
 	}
 
 
@@ -128,9 +134,9 @@ int tracker_keepAlive(tracker_peer_t *peer){
 	gettimeofday(&heartbeat, NULL);
 
 	//Update timestamp
-	pthread_mutex_lock(trackpeertable_mutex);
+	pthread_mutex_lock(peertable_mutex);
 	peer->last_time_stamp = heartbeat.tv_sec;
-	pthread_mutex_unlock(trackpeertable_mutex); 
+	pthread_mutex_unlock(peertable_mutex); 
 	return 1; 
 
 }
@@ -147,7 +153,7 @@ void* tracker_Handshake(void *arg){
 		//receive a segment
 		if (tracker_recvseg(peer->sockfd, &segment) < 0){
 			close(peer->sockfd);
-			tracker_peertableremove(trackerpeertable, peer);
+			tracker_peertableremove(peertable, peer);
 			pthread_exit(NULL);
 		}
 
@@ -175,6 +181,10 @@ void* tracker_Handshake(void *arg){
 int tracker_acceptRegister(){
 	return 0; 
 
+}
+
+int broadcastUpdates(){
+	return 0;
 }
 
 
