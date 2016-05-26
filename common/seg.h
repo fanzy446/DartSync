@@ -8,6 +8,7 @@
 #define FILE_UPDATE 2
 
 #include "../common/constants.h"
+#include "../common/filetable.h"
 
 
 /* The packet data structure sending from peer to tracker */

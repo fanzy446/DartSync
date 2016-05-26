@@ -18,7 +18,7 @@
 #include <netdb.h>
 #include <sys/socket.h>
 
-
+#include "../common/constants.h"
 /*
 *	STRUCT
 */
@@ -60,6 +60,7 @@ FileTable* createTable();
 void printTable(FileTable* table);
 char* getMyIP();
 Node* createNode(char* filename, int size, unsigned long timestamp);
+void packFileTable(FileTable *table, Node nodes[]);
 
 
 

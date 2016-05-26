@@ -1,3 +1,5 @@
+#define _DEFAULT_SOURCE
+#include <unistd.h>
 #include "filetable.h"
 
 FileTable* createTable(){
@@ -41,7 +43,6 @@ FileTable* initTable(char* directory){
 
 void destroyTable(FileTable* table){
 	Node* curnode = table->head, *tempnode = NULL;
-	int i;
 	while(curnode != NULL){
 		tempnode = curnode->pNext;
 		free(curnode);
@@ -110,7 +111,7 @@ void printTable(FileTable* table){
 	Node* curnode = table->head, *tempnode;
 	int i;
 	while(curnode != NULL){
-		printf("Name:%s, Size:%ld, Timestamp:%ld \n", curnode->name, curnode->size, curnode->timestamp);
+		printf("Name:%s, Size:%d, Timestamp:%ld \n", curnode->name, curnode->size, curnode->timestamp);
 		curnode = curnode->pNext;
 	}
 }
@@ -126,6 +127,7 @@ char *getMyIP(){
 		addr_list = (struct in_addr **) he->h_addr_list;
 		return inet_ntoa(*addr_list[0]);
 	}
+	return 0;
 }
 
 Node* createNode(char* filename, int size, unsigned long timestamp){
@@ -136,8 +138,21 @@ Node* createNode(char* filename, int size, unsigned long timestamp){
 	node->timestamp = timestamp;
 	node->pNext = NULL;
 	node->peernum = 1;
-	strcpy(node->peerip[0], getMyIP())
+	strcpy(node->peerip[0], getMyIP());
 	return node;
+}
+
+/* This function packs the linked list contained in the FileTable into the Node array contained in segments
+ */
+void packFileTable(FileTable *table, Node nodes[]){
+	Node *currNode = table->head;
+
+	int i = 0;
+	while (currNode != NULL){
+		nodes[i] = *currNode;
+		currNode = currNode->pNext; 
+	}
+	return;
 }
 
 

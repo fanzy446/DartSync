@@ -30,6 +30,7 @@ int tracker_keepAlive(tracker_peer_t *peer);
 int tracker_listenForPeers();
 void* tracker_monitorAlive(void *arg);
 void* tracker_Handshake(void *arg);
+int tracker_acceptRegister();
 
 
 int main(){
@@ -160,7 +161,7 @@ void* tracker_Handshake(void *arg){
 		//Handle depending on segment type
 		switch(segment.type){
 			case REGISTER: 
-				tracker_acceptRegister();
+				tracker_acceptRegister(peer->sockfd);
 				//send back entire file table
 				//tracker sends back packet informing Interval (heartrate) and peice length for the peer to set up 
 				// (tracker- acceptregister())
@@ -180,27 +181,33 @@ void* tracker_Handshake(void *arg){
 	}
 }
 
-int tracker_acceptRegister(){
+int tracker_acceptRegister(int peerconn){
 	ptp_tracker_t segment;
 	segment.interval = HEARTRATE;
+	packFileTable(filetable, segment.sendNode);
 
-	Node *currNode;
-	int i;
-	currNode = filetable->head;
-	while (currNode != NULL){
-		segment.sendNode[i].name = currNode->name; 
-		segment.sendNode[i].size = currNode->size;
-		segment.sendNode[i].timestamp = currNode->timestamp;
-		segment.peernum = c;
-		segment.peerip = currNode->peerip; 
+	if (tracker_sendseg(peerconn, &segment)){
+		return 1;
+	}
+	else{
+		return -1; 
 	}
 
-	return 0;
+
+	// while (currNode != NULL){
+	// 	segment.sendNode[i].name = currNode->name; 
+	// 	segment.sendNode[i].size = currNode->size;
+	// 	segment.sendNode[i].timestamp = currNode->timestamp;
+	// 	segment.peernum = c;
+	// 	segment.peerip = currNode->peerip; 
+	// }
+
+	// return 0;
 
 }
 
 void tracker_compareFiletables(){
-	
+
 }
 
 int broadcastUpdates(){
