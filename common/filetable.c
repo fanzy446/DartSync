@@ -108,8 +108,7 @@ int modifyNode(FileTable* table, char* filename, int size, unsigned long timesta
 
 void printTable(FileTable* table){
 	printf("printTable shows all nodes in a table:\n");
-	Node* curnode = table->head, *tempnode;
-	int i;
+	Node* curnode = table->head;
 	while(curnode != NULL){
 		printf("Name:%s, Size:%d, Timestamp:%ld \n", curnode->name, curnode->size, curnode->timestamp);
 		curnode = curnode->pNext;

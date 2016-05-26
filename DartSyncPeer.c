@@ -9,6 +9,8 @@
 #include <unistd.h>
 #include "common/constants.h"
 #include "common/seg.h"
+#include "peer/filemonitor.h"
+#include "common/filetable.h"
 
 
 /***************************************************************/
@@ -21,26 +23,34 @@ FileTable *table;
 int peer_connToTracker();
 int peer_disconnectFromTracker(int trackerconn);
 void *sendheartbeat(void *arg);
-int peer_sendregister();
+int sendregister();
 int seghandler();
 
 int main(){
 
 
 	//Make filetable
-	char *path = readConfigFile("./peer/config.ini");
-	table = initTable(readConfigFile(path));
-	watchDirectory(path);
+	// char *path = readConfigFile("./peer/config.ini");
+	// table = initTable(readConfigFile(path));
+	// watchDirectory(path);
 
 	//Establish connection to tracker
 	trackerconn = peer_connToTracker();
+	sendregister();
+	receiveTrackerState()
+
+	pthread_t heartbeat_thread;
+	pthread_create(&heartbeat_thread, NULL, sendheartbeat, (void *) 0)
+
+	sleep(10);
+	return 0;
 
 	//sendsregister()
-	//receiveTrackerState()
 
 
-	pthread_t fileMonitor_thread;
-	pthread_create(&fileMonitor_thread, NULL, monitor, (void *) table);
+
+	// pthread_t fileMonitor_thread;
+	// pthread_create(&fileMonitor_thread, NULL, monitor, (void *) table);
 
 	while (1){
 		//Listen to tracker
@@ -90,28 +100,36 @@ int peer_disconnectFromTracker(int trackerconn){
 }
 
 void *sendheartbeat(void *arg){
-	// create segment
 	ptp_peer_t heartbeatseg;
 	heartbeatseg.type = KEEP_ALIVE;
 
 	while (1){
 		sleep(interval);
-
 		peer_sendseg(trackerconn, &heartbeatseg);
 	}
-	return NULL;
 }
-int seghandler(){
-	return 0; 
-}
+
+
 
 int sendregister(){
 	ptp_peer_t registerPacket;
 	registerPacket.type = REGISTER;
-	peer_sendseg(trackerconn, &registerPacket);
+	if (peer_sendseg(trackerconn, &registerPacket) < 0 ){
+		printf("failed to send register packet\n");
+		return 0; 
+	}
+	return 1; 
 }
 
 int receiveTrackerState(){
+	ptp_tracker_t segment; 
+
+	if (peer_recvseg(trackerconn, &segment) < 0){
+		printf("Receive failed\n");
+		return -1;
+	}
+	interval = segment.interval - 5;		//should give big cushion for send time
+	//Now compare the files and update accordingly
 
 }
 
@@ -120,8 +138,8 @@ void peer_compareFiletables(ptp_tracker_t segment){
 
 	Node *currNode = table->head;
 
-	for (int i = 0; i < segment.file_table_size, i++){
-		currNode = table->head
+	for (int i = 0; i < segment.file_table_size; i++){
+		currNode = table->head;
 		while (currNode != NULL){
 			if (strcmp(currNode->name, segment.sendNode[i].name) == 0){
 				if (currNode->timestamp == segment.sendNode[i].timestamp){
@@ -132,7 +150,7 @@ void peer_compareFiletables(ptp_tracker_t segment){
 					//dont send our filetable to tracker as it happens when file is updated in local and peer has sent notification but tracker haven't updated
 					break;
 				}
-				else if (currNode->timestamp < segment.sendNode[i]timestamp){
+				else if (currNode->timestamp < segment.sendNode[i].timestamp){
 					//update our filetable/ask to download
 					modifyNode(table, currNode->name, currNode->size, currNode->timestamp);
 					// block listening modify
@@ -151,15 +169,17 @@ void peer_compareFiletables(ptp_tracker_t segment){
 		}
 	}
 
-	currNode = table->head
+	currNode = table->head; 
 	while (currNode != NULL){
-		for (int i = 0; i < segment.file_table_size, i++){
+		for (int i = 0; i < segment.file_table_size; i++){
 			if (strcmp(currNode->name, segment.sendNode[i].name) == 0){
 				break;
 			}
 		}
 		deleteNode(table, currNode->name);
 		// delete the actual file
+		// cat DIR and currNode->name
+		//remove(currNode->name);  // a stdio.h function
 
 	}
 

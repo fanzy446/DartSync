@@ -17,7 +17,8 @@
 #include "common/constants.h"
 #include "common/peertable.h"
 
-
+#define ALIVE 1 
+#define DEAD 0
 /***************************************************************/
 //declare global variables
 /***************************************************************/
@@ -45,9 +46,9 @@ int main(){
 	filetable_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
 	pthread_mutex_init(filetable_mutex, NULL);
 
-	//Start listenheartbeat thread 
-	pthread_t monitorAlive_thread;
-	pthread_create(&monitorAlive_thread, NULL, tracker_monitorAlive, (void *) 0);
+	// //Start listenheartbeat thread 
+	// pthread_t monitorAlive_thread;
+	// pthread_create(&monitorAlive_thread, NULL, tracker_monitorAlive, (void *) 0);
 
 	//Add peer connections and create handshake threads for each of them
 	tracker_listenForPeers();
@@ -91,7 +92,7 @@ int tracker_listenForPeers(){
 			newPeerEntry->sockfd = newpeer;
 			newPeerEntry->next = NULL; 
 			memcpy(newPeerEntry->ip, inet_ntoa(peer_addr.sin_addr), IP_LEN);
-			newPeerEntry->last_time_stamp = 0;
+			newPeerEntry->last_time_stamp = 0;										//Hasn't received the interval yet
 			tracker_peertableadd(peertable, newPeerEntry);
 
 			//create a new handshake for the connection
@@ -162,14 +163,11 @@ void* tracker_Handshake(void *arg){
 		switch(segment.type){
 			case REGISTER: 
 				tracker_acceptRegister(peer->sockfd);
-				//send back entire file table
-				//tracker sends back packet informing Interval (heartrate) and peice length for the peer to set up 
-				// (tracker- acceptregister())
+				tracker_keepAlive(peer); 				//Start tracking whether this peer is alive
 				break; 
 			case KEEP_ALIVE: 
 				tracker_keepAlive(peer);
 				break; 
-
 			case FILE_UPDATE: 
 				//
 				// compare received file table with one it already has
@@ -181,32 +179,34 @@ void* tracker_Handshake(void *arg){
 	}
 }
 
+/* This function responds to a REGISTER packet by giving the newly connected peer the currentfilestate
+ * as well as the HEARTRATE (interval) for the peer to set up
+ */
 int tracker_acceptRegister(int peerconn){
 	ptp_tracker_t segment;
 	segment.interval = HEARTRATE;
 	packFileTable(filetable, segment.sendNode);
+	printf("ENTERED here\n");
 
 	if (tracker_sendseg(peerconn, &segment)){
 		return 1;
+		printf("Sent table");
 	}
 	else{
 		return -1; 
+		printf("failed to send table");
 	}
-
-
-	// while (currNode != NULL){
-	// 	segment.sendNode[i].name = currNode->name; 
-	// 	segment.sendNode[i].size = currNode->size;
-	// 	segment.sendNode[i].timestamp = currNode->timestamp;
-	// 	segment.peernum = c;
-	// 	segment.peerip = currNode->peerip; 
-	// }
-
-	// return 0;
-
 }
 
+
+//needs to take in the segments file table or the segment itself
 void tracker_compareFiletables(){
+	// int needUpdate;
+
+
+	// if (needUpdate){
+	// 	//broadcast to all alive peers
+	// }
 
 }
 
