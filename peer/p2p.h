@@ -2,7 +2,6 @@
 #define P2P_H
 
 #include "../common/constants.h"
-#include "../common/filetable.h"
 
 typedef struct p2p_request_pkg{
 	char filename[FILE_NAME_LENGTH];
@@ -16,8 +15,8 @@ typedef struct p2p_data_pkg{
 } p2p_data_pkg_t;
 
 typedef struct p2p_request_arg{
-	char* ip;
-	char* filename;
+	char ip[IP_LEN];
+	char filename[FILE_NAME_LENGTH];
 	unsigned long int timestamp;
 	int partition;
 	int* exist;
@@ -31,7 +30,7 @@ typedef struct send_thread_arg
 	struct p2p_request_arg *req_info;
 }send_thread_arg_t;
 
-int download(char* filename, int size, unsigned long int timestamp, char** nodes, int numOfNodes);
+int download(char* filename, int size, unsigned long int timestamp, char nodes[][IP_LEN], int numOfNodes);
 
 int start_listening(int port);
 

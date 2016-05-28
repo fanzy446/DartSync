@@ -16,7 +16,7 @@ pthread_mutex_t* exist_mutex;
 pthread_mutex_t* running_mutex;
 pthread_mutex_t* upload_running_mutex;
 
-int download(char* filename, int size, unsigned long int timestamp, char** nodes, int numOfNodes){
+int download(char* filename, int size, unsigned long int timestamp, char nodes[][IP_LEN], int numOfNodes){
 	int total = (size-1)/BLOCK_SIZE+1;
 	printf("download: size %d, split into %d parts\n", size, total);
 	int curNode = 0;
@@ -67,18 +67,17 @@ int download(char* filename, int size, unsigned long int timestamp, char** nodes
 			exist[i] = 2;
 			pthread_mutex_unlock(exist_mutex);
 
-			char* ip = nodes[curNode];
-			curNode = (curNode+1)%numOfNodes;
-
 			p2p_request_arg_t* request_args = malloc(sizeof(p2p_request_arg_t)) ;
 			memset(request_args, 0, sizeof(p2p_request_arg_t));
-			request_args->ip = ip;
-			request_args->filename = filename;
+			memcpy(request_args->ip, nodes[curNode], IP_LEN);
+			memcpy(request_args->filename, filename, FILE_NAME_LENGTH);
 			request_args->timestamp = timestamp;
 			request_args->partition = i;
 			request_args->exist = &(exist[i]);
 			request_args->running = &running;
 		
+			curNode = (curNode+1)%numOfNodes;
+
 			pthread_t download_thread;
 			pthread_create(&download_thread,NULL,singleDownload,(void*)request_args);
 			
@@ -141,7 +140,7 @@ void* singleDownload(void* args){
 
 	    p2p_request_pkg_t pkg;
 		memset(&pkg, 0, sizeof(p2p_request_pkg_t));
-		memcpy(pkg.filename, request_args->filename, strlen(request_args->filename));
+		memcpy(pkg.filename, request_args->filename, FILE_NAME_LENGTH);
 		pkg.timestamp = request_args->timestamp;
 		pkg.partition = request_args->partition;
 		if(download_sendpkt(&pkg, conn) < 0){
@@ -470,7 +469,7 @@ int upload(int sockfd, p2p_request_pkg_t* pkg){
 	//if the pkg->timestamp < current timestemp
 
 	FILE *fp;
-	if((fp = fopen(pkg->filename,"rb"))!=NULL){
+	if((fp = fopen(pkg->filename,"r"))!=NULL){
 		fseek(fp,0,SEEK_END);
 		int size;
 		int total = (ftell(fp)-1)/BLOCK_SIZE+1;
