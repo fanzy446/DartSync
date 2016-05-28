@@ -17,31 +17,42 @@
 #include "common/constants.h"
 #include "common/peertable.h"
 
-
+#define ALIVE 1 
+#define DEAD 0
 /***************************************************************/
 //declare global variables
 /***************************************************************/
-ts_peertable_t *trackerpeertable;
-pthread_mutex_t *trackpeertable_mutex;
+ts_peertable_t *peertable;
+FileTable *filetable;
+pthread_mutex_t *peertable_mutex;
+pthread_mutex_t *filetable_mutex;
+
 
 int tracker_keepAlive(tracker_peer_t *peer);
 int tracker_listenForPeers();
 void* tracker_monitorAlive(void *arg);
 void* tracker_Handshake(void *arg);
+int tracker_acceptRegister();
+void tracker_compareFiletables(ptp_peer_t segment);
 
 
 int main(){
 
-	//initialize peer table as empty
-	trackerpeertable = tracker_peertablecreate();
+	//initialize peer and file table as empty
+	peertable = tracker_peertablecreate();
+	filetable = createTable();
 
-	trackpeertable_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
-	pthread_mutex_init(trackpeertable_mutex, NULL);
+	//create mutexes for peertable and filetable
+	peertable_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
+	pthread_mutex_init(peertable_mutex, NULL);
+	filetable_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
+	pthread_mutex_init(filetable_mutex, NULL);
 
-	//Start listenheartbeat thread 
-	pthread_t monitorAlive_thread;
-	pthread_create(&monitorAlive_thread, NULL, tracker_monitorAlive, (void *) 0);
+	// //Start listenheartbeat thread 
+	// pthread_t monitorAlive_thread;
+	// pthread_create(&monitorAlive_thread, NULL, tracker_monitorAlive, (void *) 0);
 
+	//Add peer connections and create handshake threads for each of them
 	tracker_listenForPeers();
 
 }
@@ -76,20 +87,20 @@ int tracker_listenForPeers(){
 	}
 
 	while (1){
-		newpeer = accept(listensd, (struct sockaddr*) &peer_addr, &peer_addr_len);
+		if ((newpeer = accept(listensd, (struct sockaddr*) &peer_addr, &peer_addr_len)) != -1){
+			printf("New peer connected\n");
+			//create a new peer entry
+			tracker_peer_t *newPeerEntry = malloc(sizeof(tracker_peer_t));
+			newPeerEntry->sockfd = newpeer;
+			newPeerEntry->next = NULL; 
+			memcpy(newPeerEntry->ip, inet_ntoa(peer_addr.sin_addr), IP_LEN);
+			newPeerEntry->last_time_stamp = 0;										//Hasn't received the interval yet
+			tracker_peertableadd(peertable, newPeerEntry);
 
-		//create a new peer entry
-		tracker_peer_t *newPeerEntry = malloc(sizeof(tracker_peer_t));
-		newPeerEntry->sockfd = newpeer;
-		newPeerEntry->next = NULL; 
-		memcpy(newPeerEntry->ip, inet_ntoa(peer_addr.sin_addr), IP_LEN);
-		newPeerEntry->last_time_stamp = 0;
-		tracker_peertableadd(trackerpeertable, newPeerEntry);
-
-		//create a new handshake for the connection
-		pthread_t handshake_thread;
-		pthread_create(&handshake_thread, NULL, tracker_Handshake, (void *) newPeerEntry); 
-
+			//create a new handshake for the connection
+			pthread_t handshake_thread;
+			pthread_create(&handshake_thread, NULL, tracker_Handshake, (void *) newPeerEntry); 
+		}
 	}
 
 }
@@ -103,19 +114,19 @@ void* tracker_monitorAlive(void *arg){
 		gettimeofday(&currentTime, NULL);
 
 		//Iterate through all presumed to be 'alive' peers
-		pthread_mutex_lock(trackpeertable_mutex);
-		tracker_peer_t *peer = trackerpeertable->head; 
+		pthread_mutex_lock(peertable_mutex);
+		tracker_peer_t *peer = peertable->head; 
 		while (peer != NULL){
 			//remove all dead peers
 			if (currentTime.tv_sec - peer->last_time_stamp > HEARTRATE && peer->last_time_stamp != 0){
 				tracker_peer_t *toRemove = peer; 
 				peer = peer->next;
-				tracker_peertableremove(trackerpeertable, toRemove);
+				tracker_peertableremove(peertable, toRemove);
 				continue; 
 			}
 			peer = peer->next;
 		}
-		pthread_mutex_unlock(trackpeertable_mutex);
+		pthread_mutex_unlock(peertable_mutex);
 	}
 
 
@@ -127,9 +138,9 @@ int tracker_keepAlive(tracker_peer_t *peer){
 	gettimeofday(&heartbeat, NULL);
 
 	//Update timestamp
-	pthread_mutex_lock(trackpeertable_mutex);
+	pthread_mutex_lock(peertable_mutex);
 	peer->last_time_stamp = heartbeat.tv_sec;
-	pthread_mutex_unlock(trackpeertable_mutex); 
+	pthread_mutex_unlock(peertable_mutex); 
 	return 1; 
 
 }
@@ -146,27 +157,125 @@ void* tracker_Handshake(void *arg){
 		//receive a segment
 		if (tracker_recvseg(peer->sockfd, &segment) < 0){
 			close(peer->sockfd);
-			tracker_peertableremove(trackerpeertable, peer);
+			tracker_peertableremove(peertable, peer);
 			pthread_exit(NULL);
 		}
 
 		//Handle depending on segment type
 		switch(segment.type){
 			case REGISTER: 
-				//tracker sends back packet informing Interval (heartrate) and peice length for the peer to set up 
-				// (tracker- acceptregister())
+				printf("recieved register\n");
+				tracker_acceptRegister(peer->sockfd);
+				tracker_keepAlive(peer); 				//Start tracking whether this peer is alive
 				break; 
 			case KEEP_ALIVE: 
 				tracker_keepAlive(peer);
 				break; 
 			case FILE_UPDATE: 
-				// compare received file table with one it already has
-				// if update is necessary
-					//update
-					// broadcast updated file table to all alive peers
+				printf("received file update packet\n");
+				if (tracker_compareFiletables(segment) > 0){
+					broadcastUpdates();
+				}
 				break; 
 		}
 	}
+}
+
+/* This function responds to a REGISTER packet by giving the newly connected peer the currentfilestate
+ * as well as the HEARTRATE (interval) for the peer to set up
+ */
+int tracker_acceptRegister(int peerconn){
+	ptp_tracker_t segment;
+	segment.interval = HEARTRATE;
+	packFileTable(filetable, filetable_mutex, segment.sendNode, &segment.file_table_size);
+
+	if (tracker_sendseg(peerconn, &segment)){
+		return 1;
+		printf("Sent table");
+	}
+	else{
+		return -1; 
+		printf("failed to send table");
+	}
+}
+
+
+//needs to take in the segments file table or the segment itself
+void tracker_compareFiletables(ptp_peer_t segment){
+	Node *currNode; 
+	int i, broadcast;
+	int havePeerFile[segment.file_table_size];
+	memset(havePeerFile, 0, segment.file_table_size *sizeof(int));
+
+	broadcast = 0; 
+	currNode = filetable->head;
+	while (currNode != NULL){
+		for (i = 0; i < segment.file_table_size; i++){
+			if (strcmp(currNode->name, segment.sendNode[i].name) == 0){
+				havePeerFile[i] = 1; 
+
+				if (currNode->timestamp == segment.sendNode[i].timestamp){
+					printf("timestamps are equal for %s\n", currNode->name);
+					peerHasFile(currNode, segment.peer_ip);						//Checks to make sure tracker has record of peer possessing this file
+					break;
+				}
+				else if (currNode->timestamp > segment.sendNode[i].timestamp){
+					printf("Tracker has more recent version of file '%s'\n", currNode->name); 
+					break;
+				}
+				else if (currNode->timestamp < segment.sendNode[i].timestamp){
+					printf("Peer has more recent version of '%s', telling other peers...\n", currNode->name);
+					broadcast = 1; 
+					pthread_mutex_lock(filetable_mutex);
+					modifyNode(filetable, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.peer_ip);
+					pthread_mutex_unlock(filetable_mutex);
+					break;
+				}
+			}
+		}
+		// If has iterated through all incoming segments with no match
+		// Peer has deleted a file -> remove this file from filetable
+		if (i == segment.file_table_size){		
+			printf("Peer deleted file... '%s' tracker removing from filetable\n", currNode->name);
+			broadcast = 1; 
+			pthread_mutex_lock(filetable_mutex);
+			deleteNode(filetable, currNode->name);
+			pthread_mutex_unlock(filetable_mutex);
+		}
+
+		currNode = currNode->pNext; 
+	}
+	for (int i = 0; i < segment.file_table_size; i++){
+		if (!havePeerFile[i]){
+			printf("Peer has added file named '%s\n", segment.sendNode[i].name);
+			broadcast = 1; 
+			pthread_mutex_lock(filetable_mutex);
+			addNewNode(filetable, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.peer_ip); 
+			pthread_mutex_unlock(filetable_mutex);
+		}
+	}
+	return broadcast;
+}
+
+int broadcastUpdates(){
+	tracker_peer_t *currPeer;
+	ptp_tracker_t broadcast;
+
+	//Construct broadcast message
+	packFileTable(filetable, filetable_mutex, broadcast.sendNode, &broadcast.file_table_size);
+
+	//Send to all alive peers
+	pthread_mutex_lock(peertable_mutex);
+	currPeer = peertable->head;
+	while (currPeer != NULL){
+		if (tracker_sendseg(currPeer->sockfd, &broadcast) < 0 ){
+			printf("send broadcast failed at peer %d\n", currPeer->sockfd);
+			pthread_mutex_unlock(peertable_mutex);
+			return -1;
+		}
+	}
+	pthread_mutex_unlock(peertable_mutex);
+	return 1; 
 }
 
 

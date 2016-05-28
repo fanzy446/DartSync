@@ -1,7 +1,16 @@
 all: test/downloader test/uploader test/multi_downloaders DartSyncTracker
 
-DartSyncTracker: DartSyncTracker.c common/peertable.o common/seg.o
-	gcc -Wall -pedantic -std=c99 -g -pthread DartSyncTracker.c common/peertable.o common/seg.o -o DartSyncTracker
+DartSyncTracker: DartSyncTracker.c common/peertable.o common/seg.o common/filetable.o 
+	gcc -Wall -pedantic -std=c99 -g -pthread DartSyncTracker.c common/peertable.o common/seg.o common/filetable.o -o DartSyncTracker
+
+DartSyncPeer: DartSyncPeer.c common/seg.o peer/filemonitor.o common/filetable.o peer/p2p.o
+	gcc -Wall -pedantic -std=c99 -g -pthread DartSyncPeer.c common/seg.o peer/filemonitor.o common/filetable.o peer/p2p.o -o DartSyncPeer
+
+peer/filemonitor.o: peer/filemonitor.c peer/filemonitor.h common/filetable.o
+	gcc -Wall -pedantic -std=c99 -g -c peer/filemonitor.c common/filetable.o -o peer/filemonitor.o 
+
+common/filetable.o: common/filetable.c common/filetable.h
+	gcc -Wall -pedantic -D_GNU_SOURCE -std=c99 -g -c common/filetable.c -o common/filetable.o
 
 common/peertable.o: common/peertable.c common/peertable.h
 	gcc -Wall -pedantic -std=c99 -g -c common/peertable.c -o common/peertable.o
@@ -23,7 +32,9 @@ test/uploader: test/uploader.c peer/p2p.o
 
 clean:
 	rm -rf DartSyncTracker
+	rm -rf DartSyncPeer
 	rm -rf common/peertable.o
+	rm -rf common/filetable.o
 	rm -rf common/seg.o
 	rm -rf peer/*.o
 	rm -rf test/downloader

@@ -1,32 +1,67 @@
-//FILE: common/peertable.h 
-//
-//Description: 
-//
-//Date: May 18, 2016
+#ifndef FILETABLE_h
+#define FILETABLE_h
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <linux/inotify.h>
+#include <sys/stat.h>
+#include <time.h>
+#include <dirent.h>
+#include <unistd.h>
+#include <string.h>
+#include <pthread.h>
+#include <time.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <sys/socket.h>
 
-#ifndef FILETABLE_H 
-#define FILETABLE_H
+#include "../common/constants.h"
+/*
+*	STRUCT
+*/
 
-
-//each file can be represented as a node in file table
 typedef struct node{
-     //the size of the file
-     int size;
-     //the name of the file
-     char *name;
-     //the timestamp when the file is modified or created
-     unsigned long int timestamp;
-     //pointer to build the linked list
-     struct node *pNext;
-     //for the file table on peers, it is the ip address of the peer
-     //for the file table on tracker, it records the ip of all peers which has the
-     //newest edition of the file
-     char *newpeerip;
-}Node,*pNode;
+	int size;
+	char name[LEN_FILE_NAME];
+	unsigned long timestamp;
+	struct node *pNext;
+	int peernum;
+	char peerip[MAX_PEERS][IP_LEN];
+} Node, *pNode;
 
 typedef struct filetable{
+	int numNodes; 
 	struct node *head;
-}filetable_t;
+} FileTable, filetable_t;
+
+
+
+
+
+
+
+/*
+*	INTERFACES
+*/
+FileTable* initTable(char* directory);
+void destroyTable(FileTable*);
+void addNewNode(FileTable* table, char* filename, int size, unsigned long timestamp, char *ip);
+int deleteNode(FileTable* table, char* filename);
+int modifyNode(FileTable* table, char* filename, int size, unsigned long timestamp, char *ip);
+void packFileTable(FileTable *table, pthread_mutex_t *filetable_mutex, Node nodes[], int *setNodeNum);
+int peerHasFile(Node *fileRecord, char *ip);
+
+
+/*
+*	SUPPORT FUNCTIONS
+*/
+FileTable* createTable();
+void printTable(FileTable* table);
+char* getMyIP();
+Node* createNode(char* filename, int size, unsigned long timestamp);
+
 
 #endif

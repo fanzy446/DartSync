@@ -22,12 +22,13 @@ int tracker_sendseg(int peerconn, ptp_tracker_t *segment)
 	if (send(peerconn, bufstart, 2, 0) < 0) {
 		return -1;
 	}
-	if(send(peerconn,&segment,sizeof(ptp_tracker_t),0)<0) {
+	if(send(peerconn, segment,sizeof(ptp_tracker_t),0)<0) {
 		return -1;
 	}
 	if(send(peerconn,bufend,2,0)<0) {
 		return -1;
 	}
+	fflush(stdout);
 	return 1;
 }
 
@@ -104,7 +105,7 @@ int peer_sendseg(int trackerconn, ptp_peer_t *segment)
 	if (send(trackerconn, bufstart, 2, 0) < 0) {
 		return -1;
 	}
-	if(send(trackerconn,&segment,sizeof(ptp_peer_t),0)<0) {
+	if(send(trackerconn,segment,sizeof(ptp_peer_t),0)<0) {
 		return -1;
 	}
 	if(send(trackerconn,bufend,2,0)<0) {

@@ -15,6 +15,12 @@
 
 #define HEARTRATE 600
 
+#define MAX_PEERS 16
+
+#define LEN_FILE_NAME 1024
+
+#define MAX_FILES 1024
+
 
 // MUST REDEFINE THE FOLLOWING- unknown what to set them as right now
 #define PROTOCOL_LEN 0

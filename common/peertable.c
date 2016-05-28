@@ -3,6 +3,8 @@
 #include <stdlib.h> 
 #include <stdio.h>
 
+
+
 ts_peertable_t *tracker_peertablecreate(){
 	ts_peertable_t *trackerpeertable = malloc(sizeof(ts_peertable_t));
 	trackerpeertable->head = NULL;
@@ -52,4 +54,15 @@ int tracker_peertabledestroy(ts_peertable_t *trackerpeertable){
 	}
 	free(trackerpeertable);
 	return 1; 
+}
+
+int tracker_peertableprint(ts_peertable_t *peertable){
+	tracker_peer_t *peer = peertable->head;
+	// printf("entered\n");
+	while (peer != NULL){
+		printf("%d", peer->sockfd);
+		peer = peer->next;
+	}
+	// printf("left\n");
+	return 0;
 }

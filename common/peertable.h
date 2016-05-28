@@ -45,5 +45,6 @@ ts_peertable_t *tracker_peertablecreate();
 int tracker_peertableadd(ts_peertable_t *table, tracker_peer_t *newpeer);
 int tracker_peertableremove(ts_peertable_t *table, tracker_peer_t *peer);
 int tracker_peertabledestroy(ts_peertable_t *trackerpeertable);
+int tracker_peertableprint(ts_peertable_t *peertable);
 
 #endif

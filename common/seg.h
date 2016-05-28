@@ -8,6 +8,7 @@
 #define FILE_UPDATE 2
 
 #include "../common/constants.h"
+#include "../common/filetable.h"
 
 
 /* The packet data structure sending from peer to tracker */
@@ -27,7 +28,7 @@ typedef struct segment_peer {
   // the number of files in the local file table -- optional
   int file_table_size;
   // file table of the client -- your own design
-  //file_t file_table;
+  Node sendNode[MAX_FILES];
 }ptp_peer_t;
 
 
@@ -36,12 +37,12 @@ typedef struct segment_peer {
 typedef struct segment_tracker{
 // time interval that the peer should sending alive message periodically
 int interval;
-// piece length
-int piece_len;
+// // piece length
+// int piece_len;
 // file number in the file table -- optional
 int file_table_size;
 // file table of the tracker -- your own design
-//file_t file_table;
+Node sendNode[MAX_FILES];
 } ptp_tracker_t;
 
 int tracker_sendseg(int peerconn, ptp_tracker_t *segment);
