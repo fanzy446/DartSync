@@ -7,7 +7,7 @@
 
 int main(int argc , char *argv[])
 {
- 	char* fileName = "test_large.txt";
+ 	char* fileName = "haha.jpg";
 
 	FILE *f = fopen(fileName,"r");
 	fseek(f,0,SEEK_END);
@@ -15,9 +15,7 @@ int main(int argc , char *argv[])
 	fclose(f);
 
 	unsigned long int timestamp = 1111111;
-	char** nodes = malloc(sizeof(char*)*2);
-	// nodes[0] = "129.170.212.87";
-	nodes[0] = "127.0.0.1";
+	char nodes[][IP_LEN] = {"127.0.0.1"};
 
 	download(fileName, size, timestamp, nodes, 1);
 

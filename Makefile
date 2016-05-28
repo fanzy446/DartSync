@@ -10,7 +10,7 @@ peer/filemonitor.o: peer/filemonitor.c peer/filemonitor.h common/filetable.o
 	gcc -Wall -pedantic -std=c99 -g -c peer/filemonitor.c common/filetable.o -o peer/filemonitor.o 
 
 common/filetable.o: common/filetable.c common/filetable.h
-	gcc -Wall -pedantic -std=c99 -g -c common/filetable.c -o common/filetable.o
+	gcc -Wall -pedantic -D_GNU_SOURCE -std=c99 -g -c common/filetable.c -o common/filetable.o
 
 common/peertable.o: common/peertable.c common/peertable.h
 	gcc -Wall -pedantic -std=c99 -g -c common/peertable.c -o common/peertable.o
