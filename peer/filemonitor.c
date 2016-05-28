@@ -5,7 +5,6 @@
 #define EVENT_BUF_LEN     ( 1024 * ( EVENT_SIZE + 16 ) )
 
 char* dirPath;
-int tracker_conn; // used to send filetable
 int fd;
 int wd;
 
@@ -165,7 +164,12 @@ int isInFileInfoList(char* filename, FileInfoList* files){
 * Thread to monitor changes in files under a directory
 */
 void* monitor(void* arg){
-  FileTable* table = (FileTable*) arg;
+  //extract information from arg
+  struct filemonitorArgs *args = (struct filemonitorArgs *) arg;
+  FileTable *table = args->filetable;
+  pthread_mutex_t *filetable_mutex = args->filetable_mutex;
+  int trackerconn = args->trackerconn;
+
   // takes filetable as an arg
   int length, i = 0, isInDir;
   char buffer[EVENT_BUF_LEN];
@@ -192,7 +196,7 @@ void* monitor(void* arg){
           }
           else {
             if (add_listening_enabled){
-              fileAdded(table, event->name);
+              fileAdded(table, event->name, filetable_mutex, trackerconn);
               printf( " File %s added.\n", event->name );
             }
           }
@@ -203,7 +207,7 @@ void* monitor(void* arg){
           }
           else {
             if (delete_listening_enabled){
-              fileDeleted(table, event->name);
+              fileDeleted(table, event->name, filetable_mutex, trackerconn);
               printf( " File %s deleted.\n", event->name );
             }
           }
@@ -214,7 +218,7 @@ void* monitor(void* arg){
           }
           else {
             if (write_listening_enabled){
-              fileModified(table, event->name);
+              fileModified(table, event->name, filetable_mutex, trackerconn);
               printf( " File %s modified.\n", event->name );
             }
           }
@@ -225,7 +229,7 @@ void* monitor(void* arg){
           }
           else {
             if (delete_listening_enabled){
-              fileDeleted(table, event->name);
+              fileDeleted(table, event->name, filetable_mutex, trackerconn);
               printf( " File %s deleted.\n", event->name );
             }
           }
@@ -237,12 +241,12 @@ void* monitor(void* arg){
           else {
             if (isInDir){
               if (write_listening_enabled){
-                fileModified(table, event->name);
+                fileModified(table, event->name, filetable_mutex, trackerconn);
                 printf( " File %s modified.\n", event->name );
               }
             }else{
               if (add_listening_enabled){
-                fileAdded(table, event->name);
+                fileAdded(table, event->name, filetable_mutex, trackerconn);
                 printf( " File %s added.\n", event->name );
               }
             }
@@ -255,7 +259,7 @@ void* monitor(void* arg){
           else {
             if (isInDir){
               if (write_listening_enabled){
-                fileModified(table, event->name);
+                fileModified(table, event->name, filetable_mutex, trackerconn);
                 printf( " File %s modified.\n", event->name );
               }
             }
@@ -272,31 +276,31 @@ void* monitor(void* arg){
 
 }
 
-void setTrackerConn(int conn){
-  tracker_conn = conn;
-}
-
 /*
 * SUPPORT FUNCTIONS
 */
 
-void fileAdded(FileTable* table, char* filename){
+void fileAdded(FileTable* table, char* filename, pthread_mutex_t *filetable_mutex, int trackerconn){
   FileInfo *fi = getFileInfo(filename);
+  pthread_mutex_lock(filetable_mutex);
   addNewNode(table, fi->filepath, fi->size, fi->lastModifyTime, NULL);
-  //sendtable
+  pthread_mutex_unlock(filetable_mutex);
+  sendFileUpdate(table, filetable_mutex, trackerconn);
 }
 
-void fileModified(FileTable* table, char* filename){
-  char ip[MAX_PEERS][IP_LEN];
-  memcpy(ip[0], getMyIP(), sizeof(char) * IP_LEN);
+void fileModified(FileTable* table, char* filename, pthread_mutex_t *filetable_mutex, int trackerconn){
   FileInfo *fi = getFileInfo(filename);
+  pthread_mutex_lock(filetable_mutex);
   modifyNode(table, fi->filepath, fi->size, fi->lastModifyTime, NULL);
-  //sendtable
+  pthread_mutex_unlock(filetable_mutex);
+  sendFileUpdate(table, filetable_mutex, trackerconn);
 }
 
-void fileDeleted(FileTable* table, char* filename){
+void fileDeleted(FileTable* table, char* filename, pthread_mutex_t *filetable_mutex, int trackerconn){
+  pthread_mutex_lock(filetable_mutex);
   deleteNode(table, filename);
-  //sendtable
+  pthread_mutex_unlock(filetable_mutex);
+  sendFileUpdate(table, filetable_mutex, trackerconn);
 }
 
 void blockFileAddListening(){
@@ -329,3 +333,20 @@ void unblockFileDeleteListening(){
   delete_listening_enabled = 1;
   pthread_mutex_unlock(&delete_lock);
 }
+
+int sendFileUpdate(FileTable *filetable, pthread_mutex_t *filetable_mutex, int trackerconn){
+  ptp_peer_t fileUpdate;
+  fileUpdate.type = FILE_UPDATE; 
+  memcpy(fileUpdate.peer_ip, getMyIP(), IP_LEN);
+  packFileTable(filetable, filetable_mutex, fileUpdate.sendNode, &fileUpdate.file_table_size);
+  if (peer_sendseg(trackerconn, &fileUpdate) < 0){
+    printf("Failed to send file update packet\n");
+    return -1; 
+  }
+  else{
+    printf("File update packet sent\n");
+    return 1; 
+  }
+}
+
+
