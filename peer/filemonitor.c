@@ -129,7 +129,8 @@ FileInfo* getFileInfo(char* filename){
   sprintf(fullpath, "%s/%s", dirPath, filename);
   struct stat st;
   stat(fullpath, &st);
-  memcpy(file->filepath, filename, sizeof(char)*LEN_FILE_NAME);
+ // memcpy(file->filepath, filename, sizeof(char)*LEN_FILE_NAME);
+  strcpy(file->filepath, filename);
   file->size = (long) st.st_size;
   file->lastModifyTime = (long) st.st_ctime;
   return file;
@@ -259,13 +260,15 @@ void setTrackerConn(int conn){
 
 void fileAdded(FileTable* table, char* filename){
   FileInfo *fi = getFileInfo(filename);
-  addNewNode(table, fi->filepath, fi->size, fi->lastModifyTime);
+  addNewNode(table, fi->filepath, fi->size, fi->lastModifyTime, NULL);
   //sendtable
 }
 
 void fileModified(FileTable* table, char* filename){
+  char ip[MAX_PEERS][IP_LEN];
+  memcpy(ip[0], getMyIP(), sizeof(char) * IP_LEN);
   FileInfo *fi = getFileInfo(filename);
-  modifyNode(table, fi->filepath, fi->size, fi->lastModifyTime);
+  modifyNode(table, fi->filepath, fi->size, fi->lastModifyTime, NULL);
   //sendtable
 }
 

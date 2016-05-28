@@ -48,9 +48,11 @@ typedef struct filetable{
 */
 FileTable* initTable(char* directory);
 void destroyTable(FileTable*);
-void addNewNode(FileTable* table, char* filename, int size, unsigned long timestamp);
+void addNewNode(FileTable* table, char* filename, int size, unsigned long timestamp, char *ip);
 int deleteNode(FileTable* table, char* filename);
-int modifyNode(FileTable* table, char* filename, int size, unsigned long timestamp);
+int modifyNode(FileTable* table, char* filename, int size, unsigned long timestamp, char *ip);
+void packFileTable(FileTable *table, pthread_mutex_t *filetable_mutex, Node nodes[], int *setNodeNum);
+int peerHasFile(Node *fileRecord, char *ip);
 
 
 /*
@@ -60,9 +62,6 @@ FileTable* createTable();
 void printTable(FileTable* table);
 char* getMyIP();
 Node* createNode(char* filename, int size, unsigned long timestamp);
-void packFileTable(FileTable *table, Node nodes[]);
-
-
 
 
 #endif

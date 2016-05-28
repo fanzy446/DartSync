@@ -37,8 +37,8 @@ typedef struct segment_peer {
 typedef struct segment_tracker{
 // time interval that the peer should sending alive message periodically
 int interval;
-// piece length
-int piece_len;
+// // piece length
+// int piece_len;
 // file number in the file table -- optional
 int file_table_size;
 // file table of the tracker -- your own design
