@@ -59,6 +59,13 @@ void fileAdded(FileTable* table, char* filename);
 void fileModified(FileTable* table, char* filename);
 void fileDeleted(FileTable* table, char* filename);
 
+void blockFileAddListening();
+void unblockFileAddListening();
+void blockFileWriteListening();
+void unblockFileWriteListening();
+void blockFileDeleteListening();
+void unblockFileDeleteListening();
+
 
 
 #endif

@@ -9,6 +9,13 @@ int tracker_conn; // used to send filetable
 int fd;
 int wd;
 
+pthread_mutex_t add_lock;
+pthread_mutex_t write_lock;
+pthread_mutex_t delete_lock;
+int add_listening_enabled = 1;
+int write_listening_enabled = 1;
+int delete_listening_enabled = 1;
+
 /*
 * INTERFACES
 */
@@ -24,7 +31,10 @@ void watchDirectory(char* directory){
   }
   wd = inotify_add_watch(fd, directory, IN_CREATE | IN_DELETE | IN_MODIFY | IN_MOVED_TO | IN_MOVED_FROM | IN_ATTRIB);
 
-  // ALSO START MONITOR-THREAD
+  if(pthread_mutex_init(&add_lock, NULL) != 0 || pthread_mutex_init(&write_lock, NULL) != 0 || pthread_mutex_init(&delete_lock, NULL) != 0){
+    printf(" mutex init failed\n");
+  }
+
 }
 
 /*
@@ -181,8 +191,10 @@ void* monitor(void* arg){
             // IGNORE FOR NOW AS WE DON'T KEEP TRACK DIRECTORIES
           }
           else {
-            fileAdded(table, event->name);
-            printf( " File %s added.\n", event->name );
+            if (add_listening_enabled){
+              fileAdded(table, event->name);
+              printf( " File %s added.\n", event->name );
+            }
           }
         }
         else if ( event->mask & IN_DELETE ) {
@@ -190,8 +202,10 @@ void* monitor(void* arg){
             // IGNORE FOR NOW AS WE DON'T KEEP TRACK DIRECTORIES
           }
           else {
-            fileDeleted(table, event->name);
-            printf( " File %s deleted.\n", event->name );
+            if (delete_listening_enabled){
+              fileDeleted(table, event->name);
+              printf( " File %s deleted.\n", event->name );
+            }
           }
         }
         else if (event->mask & IN_MODIFY){
@@ -199,8 +213,10 @@ void* monitor(void* arg){
             // IGNORE FOR NOW AS WE DON'T KEEP TRACK DIRECTORIES
           }
           else {
-            fileModified(table, event->name);
-            printf( " File %s modified.\n", event->name );
+            if (write_listening_enabled){
+              fileModified(table, event->name);
+              printf( " File %s modified.\n", event->name );
+            }
           }
         }
         else if (event->mask & IN_MOVED_FROM){
@@ -208,8 +224,10 @@ void* monitor(void* arg){
             // IGNORE FOR NOW AS WE DON'T KEEP TRACK DIRECTORIES
           }
           else {
-            fileDeleted(table, event->name);
-            printf( " File %s deleted.\n", event->name );
+            if (delete_listening_enabled){
+              fileDeleted(table, event->name);
+              printf( " File %s deleted.\n", event->name );
+            }
           }
         }
         else if (event->mask & IN_MOVED_TO){
@@ -218,13 +236,16 @@ void* monitor(void* arg){
           }
           else {
             if (isInDir){
-              fileModified(table, event->name);
-              printf( " File %s modified.\n", event->name );
+              if (write_listening_enabled){
+                fileModified(table, event->name);
+                printf( " File %s modified.\n", event->name );
+              }
             }else{
-              fileAdded(table, event->name);
-              printf( " File %s added.\n", event->name );
+              if (add_listening_enabled){
+                fileAdded(table, event->name);
+                printf( " File %s added.\n", event->name );
+              }
             }
-            
           }
         }
         else if (event->mask & IN_ATTRIB){
@@ -232,18 +253,19 @@ void* monitor(void* arg){
             // IGNORE FOR NOW AS WE DON'T KEEP TRACK DIRECTORIES
           }
           else {
-            fileModified(table, event->name);
             if (isInDir){
-              printf( " File %s modified.\n", event->name );
-
+              if (write_listening_enabled){
+                fileModified(table, event->name);
+                printf( " File %s modified.\n", event->name );
+              }
             }
           }
         }
 
-
       }
       i += EVENT_SIZE + event->len;
     }
+    //printTable(table); // for debug purpose
   }
   inotify_rm_watch( fd, wd );
   close( fd );
@@ -277,3 +299,33 @@ void fileDeleted(FileTable* table, char* filename){
   //sendtable
 }
 
+void blockFileAddListening(){
+  pthread_mutex_lock(&add_lock);
+  add_listening_enabled = 0;
+  pthread_mutex_unlock(&add_lock);
+}
+void unblockFileAddListening(){
+  pthread_mutex_lock(&add_lock);
+  add_listening_enabled = 1;
+  pthread_mutex_unlock(&add_lock);
+}
+void blockFileWriteListening(){
+  pthread_mutex_lock(&write_lock);
+  write_listening_enabled = 0;
+  pthread_mutex_unlock(&write_lock);
+}
+void unblockFileWriteListening(){
+  pthread_mutex_lock(&write_lock);
+  write_listening_enabled = 1;
+  pthread_mutex_unlock(&write_lock);
+}
+void blockFileDeleteListening(){
+  pthread_mutex_lock(&delete_lock);
+  delete_listening_enabled = 0;
+  pthread_mutex_unlock(&delete_lock);
+}
+void unblockFileDeleteListening(){
+  pthread_mutex_lock(&delete_lock);
+  delete_listening_enabled = 1;
+  pthread_mutex_unlock(&delete_lock);
+}
