@@ -20,6 +20,7 @@
 int interval; 
 int trackerconn; 
 FileTable *filetable;
+char *path;
 pthread_mutex_t *filetable_mutex; 
 
 int peer_connToTracker();
@@ -36,7 +37,7 @@ int main(){
 
 
 	//Make filetable
-	// char *path = readConfigFile("./peer/config.ini");
+	// path = readConfigFile("./config.ini");
 	// filetable = initTable(path);
 	// watchDirectory(path);
 
@@ -169,6 +170,7 @@ int receiveTrackerState(){
 
 int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 	Node *currNode;
+	char *filepath; 
 	int i; 
 	int sendUpdate;
 	int found[segment.file_table_size];
@@ -196,7 +198,9 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 					pthread_mutex_unlock(filetable_mutex);
 
 					//block listening
+					blockFileWriteListening(); 
 					//download this file from peers
+					unblockFileWriteListening();
 					break; 
 				}
 			}
@@ -212,7 +216,11 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 				pthread_mutex_lock(filetable_mutex);
 				deleteNode(filetable, currNode->name);
 				pthread_mutex_lock(filetable_mutex);
-				//Delete the actual file
+
+				strcat(filepath, "%s/%s", path, currNode->name);
+				blockFileDeleteListening();
+				remove(filepath);
+				unblockFileDeleteListening();
 			}
 		}
 
@@ -230,8 +238,9 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 			addNewNode(filetable, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, NULL);
 			pthread_mutex_unlock(filetable_mutex);
 
+			blockFileAddListening();
 			//download(segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
-			//ask to dowload the file from the peers that have it
+			unblockFileAddListening();
 		}
 	}
 

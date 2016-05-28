@@ -173,11 +173,9 @@ void* tracker_Handshake(void *arg){
 				break; 
 			case FILE_UPDATE: 
 				printf("received file update packet\n");
-				tracker_compareFiletables(segment);
-				// compare received file table with one it already has
-				// if update is necessary
-					//update
-					// broadcast updated file table to all alive peers
+				if (tracker_compareFiletables(segment) > 0){
+					broadcastUpdates();
+				}
 				break; 
 		}
 	}
@@ -205,11 +203,11 @@ int tracker_acceptRegister(int peerconn){
 //needs to take in the segments file table or the segment itself
 void tracker_compareFiletables(ptp_peer_t segment){
 	Node *currNode; 
-	int i; 
-
+	int i, broadcast;
 	int havePeerFile[segment.file_table_size];
 	memset(havePeerFile, 0, segment.file_table_size *sizeof(int));
 
+	broadcast = 0; 
 	currNode = filetable->head;
 	while (currNode != NULL){
 		for (i = 0; i < segment.file_table_size; i++){
@@ -227,6 +225,7 @@ void tracker_compareFiletables(ptp_peer_t segment){
 				}
 				else if (currNode->timestamp < segment.sendNode[i].timestamp){
 					printf("Peer has more recent version of '%s', telling other peers...\n", currNode->name);
+					broadcast = 1; 
 					pthread_mutex_lock(filetable_mutex);
 					modifyNode(filetable, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.peer_ip);
 					pthread_mutex_unlock(filetable_mutex);
@@ -238,6 +237,7 @@ void tracker_compareFiletables(ptp_peer_t segment){
 		// Peer has deleted a file -> remove this file from filetable
 		if (i == segment.file_table_size){		
 			printf("Peer deleted file... '%s' tracker removing from filetable\n", currNode->name);
+			broadcast = 1; 
 			pthread_mutex_lock(filetable_mutex);
 			deleteNode(filetable, currNode->name);
 			pthread_mutex_unlock(filetable_mutex);
@@ -248,12 +248,13 @@ void tracker_compareFiletables(ptp_peer_t segment){
 	for (int i = 0; i < segment.file_table_size; i++){
 		if (!havePeerFile[i]){
 			printf("Peer has added file named '%s\n", segment.sendNode[i].name);
-			
+			broadcast = 1; 
 			pthread_mutex_lock(filetable_mutex);
 			addNewNode(filetable, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.peer_ip); 
 			pthread_mutex_unlock(filetable_mutex);
 		}
 	}
+	return broadcast;
 }
 
 int broadcastUpdates(){
