@@ -27,7 +27,7 @@ typedef struct send_thread_arg
 {
 	int conn;
 	int* running;
-	struct p2p_request_arg *req_info;
+	p2p_request_arg_t *req_info;
 }send_thread_arg_t;
 
 int download(char* filename, int size, unsigned long int timestamp, char nodes[][IP_LEN], int numOfNodes);
@@ -46,7 +46,7 @@ int upload_sendpkt(p2p_data_pkg_t* pkt, int conn);
 
 int upload_recvreqpkt(p2p_request_pkg_t* pkt, int conn);
 
-int upload_thd(void* arg);
+void* upload_thd(void* arg);
 
 int upload(int sockfd, p2p_request_pkg_t* pkg); 
 

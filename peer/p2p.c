@@ -5,12 +5,12 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <arpa/inet.h>
+#include <sys/stat.h>
 
 #define MAX_DOWNLOAD_THREAD 300
 #define MAX_UPLOAD_THREAD 300
 #define MAX_LISTEN_NUM 300
 #define LISTENING_PORT 1234
-
 
 pthread_mutex_t* exist_mutex;
 pthread_mutex_t* running_mutex;
@@ -31,13 +31,35 @@ int download(char* filename, int size, unsigned long int timestamp, char nodes[]
 	running_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
 	pthread_mutex_init(running_mutex,NULL);
 
+
+	//create folder if necessary
+	int dirLen = 0;
+	char* part = strchr(filename, '/');
+	while(part != NULL){
+		dirLen = part-filename;
+		part = strchr(part+1, '/');
+	}
+	char* path = malloc(dirLen);
+	memcpy(path, filename, dirLen);
+	printf("download: dirLen : %d\n", dirLen);
+	if(dirLen > 0){
+		printf("download: the directory of %s: %s\n", filename, path);
+	}
+	mkdir(path, S_IRWXU);
+	free(path);
+
 	//resume download
 	char tmpFileName[FILE_NAME_LENGTH];
 	for(int i = 0; i < total; i++){
 		memset(tmpFileName, 0, FILE_NAME_LENGTH);
-		sprintf(tmpFileName, "%s_%d_%d", filename, timestamp, i);
+		sprintf(tmpFileName, "%s_%lu_%d", filename, timestamp, i);
 		if( access( tmpFileName, F_OK ) != -1 ) {
-			exist[i] = 1;
+			FILE* fp = fopen(tmpFileName,"r");
+			fseek(fp, 0L, SEEK_END);
+			int sz = ftell(fp);
+			if(i < total - 1 && sz == BLOCK_SIZE || i == total -1 && sz == (size-1)%BLOCK_SIZE+1){
+				exist[i] = 1;
+			}
 		}
 	}
 
@@ -92,26 +114,26 @@ int download(char* filename, int size, unsigned long int timestamp, char nodes[]
 	char recvFile[FILE_NAME_LENGTH];
 	memset(recvFile, 0, FILE_NAME_LENGTH);
 	sprintf(recvFile, "%s_recv", filename);
-	FILE* recv = fopen(recvFile,"w");
+	FILE* recv = fopen(recvFile,"wb");
+
+	char *buffer = (char*)malloc(BLOCK_SIZE);
+	int singleSize = 0;
 	for(int i = 0; i < total; i++){
 		char tmpFile[FILE_NAME_LENGTH];
 		memset(tmpFile, 0, FILE_NAME_LENGTH);
-		sprintf(tmpFile, "%s_%d_%d", filename, timestamp, i);
+		sprintf(tmpFile, "%s_%lu_%d", filename, timestamp, i);
 
-		FILE* tmp = fopen(tmpFile,"r");
-		fseek(tmp,0,SEEK_END);
-		int fileLen = ftell(tmp);
-		fseek(tmp,0,SEEK_SET);
-		char *buffer = (char*)malloc(fileLen);
-		memset(buffer, 0, fileLen);
-		fread(buffer,fileLen,1,tmp);
+		FILE* tmp = fopen(tmpFile,"rb");
+		memset(buffer, 0, BLOCK_SIZE);
+		if((singleSize = fread(buffer,1,BLOCK_SIZE,tmp)) > 0){
+			fwrite(buffer, singleSize, 1,recv);
+		}
 		fclose(tmp);
 		remove(tmpFile);
-
-		fwrite(buffer,fileLen,1,recv);
-		free(buffer);
 	}
+	free(buffer);
 	fclose(recv);
+	return 1;
 }
 
 void* singleDownload(void* args){
@@ -125,7 +147,8 @@ void* singleDownload(void* args){
 	servaddr.sin_addr.s_addr = inet_addr(request_args->ip);
 
 	int conn;
-	int code = 0;
+	int* code = malloc(sizeof(int));
+	*code = 0;
 
 	while(1){
 		conn = socket(AF_INET,SOCK_STREAM,0);
@@ -176,179 +199,89 @@ void* singleDownload(void* args){
 		//store in a file
 		char filename[FILE_NAME_LENGTH];
 		memset(filename, 0, FILE_NAME_LENGTH);
-		sprintf(filename, "%s_%d_%d", request_args->filename, request_args->timestamp, request_args->partition);
-		FILE* f = fopen(filename,"w");
+		sprintf(filename, "%s_%lu_%d", request_args->filename, request_args->timestamp, request_args->partition);
+		FILE* f = fopen(filename,"wb");
 		fwrite(recv_pkg.data,recv_pkg.size,1,f);
 		fclose(f);
-		code = 1;
+		*code = 1;
 		break;
 	}
 	if(conn >= 0){
 		close(conn);
 	}
 	pthread_mutex_lock(exist_mutex);
-	(*request_args->exist) = code;
+	(*request_args->exist) = *code;
 	pthread_mutex_unlock(exist_mutex);
 	pthread_mutex_lock(running_mutex);
 	(*request_args->running)--;
 	pthread_mutex_unlock(running_mutex);
 	free(request_args);
 	// printf("singleDownload: end %d\n", request_args->partition);
-    return code;
+    return (void*) code;
 }
 
 int download_sendpkt(p2p_request_pkg_t* pkt, int conn)
 {
-	// printf("download_sendpkt: start\n");
-	char bufstart[2];
-    char bufend[2];
-    bufstart[0] = '!';
-    bufstart[1] = '&';
-    bufend[0] = '!';
-    bufend[1] = '#';
-    if (send(conn, bufstart, 2, 0) < 0) {
-        perror("download_sendpkt: send start failed");
-        return -1;
-    }
-    if(send(conn, pkt, sizeof(p2p_request_pkg_t),0)<0) {
-        perror("download_sendpkt: send pkg failed");
-        return -1;
-    }
-    if(send(conn, bufend,2,0)<0) {
-        perror("download_sendpkt: send end failed");
-        return -1;
-    }
-    // printf("download_sendpkt: end\n");
+	int total = 0;
+	int size = 0;
+
+	while(total < sizeof(p2p_request_pkg_t)){
+		if((size = send(conn, (char*)pkt+total, sizeof(p2p_request_pkg_t)-total,0))<0) {
+	        perror("download_sendpkt: send pkg failed");
+	        return -1;
+	    }
+	    total += size;
+	}
     return 1;
 }
 
 int download_recvpkt(p2p_data_pkg_t* pkt, int conn)
 {
-	// printf("download_recvpkt: start\n");
-	char buf[sizeof(p2p_data_pkg_t)+2];
-    char c;
-    int idx = 0;
-    // state can be 0,1,2,3;
-    // 0 starting point
-    // 1 '!' received
-    // 2 '&' received, start receiving segment
-    // 3 '!' received,
-    // 4 '#' received, finish receiving segment
-    int state = 0;
-    while(recv(conn,&c,1,0)>0) {
-        if (state == 0) {
-            if(c=='!')
-                state = 1;
-        }
-        else if(state == 1) {
-            if(c=='&')
-                state = 2;
-            else
-                state = 0;
-        }
-        else if(state == 2) {
-        	buf[idx]=c;
-            idx++;
-            if(c=='!') {
-                state = 3;
-            }
-        }
-        else if(state == 3) {
-        	buf[idx]=c;
-            idx++;
-            if(c=='#') {
-                state = 0;
-                idx = 0;
-                memcpy(pkt,buf,sizeof(p2p_data_pkg_t));
-                // printf("download_recvpkt: end\n");
-                return 1;
-            }
-            else if(c!='!') {
-                state = 2;
-            }
-        }
-    }
-    perror("download_recvpkt: receive failed");
-    return -1;
+	int total = 0;
+	int size = 0;
+
+	while(total < sizeof(p2p_data_pkg_t)){
+		if((size = recv(conn, (char*)pkt+total, sizeof(p2p_data_pkg_t)-total, 0)) < 0){
+			perror("download_recvpkt: receive failed");
+			return -1;
+		}
+		total += size;
+	}
+	return 1;
 }
 
 int upload_sendpkt(p2p_data_pkg_t* pkt, int conn)
 {
-	// printf("upload_sendpkt: start\n");
-	char bufstart[2];
-    char bufend[2];
-    bufstart[0] = '!';
-    bufstart[1] = '&';
-    bufend[0] = '!';
-    bufend[1] = '#';
-    if (send(conn, bufstart, 2, 0) < 0) {
-        perror("upload_sendpkt: send start failed");
-        return -1;
-    }
-    if(send(conn, pkt, sizeof(p2p_data_pkg_t),0)<0) {
-        perror("upload_sendpkt: send pkg failed");
-        return -1;
-    }
-    if(send(conn, bufend,2,0)<0) {
-        perror("upload_sendpkt: send end failed");
-        return -1;
-    }
-    // printf("upload_sendpkt: end\n");
+	int total = 0;
+	int size = 0;
+
+	while(total < sizeof(p2p_data_pkg_t)){
+		if((size = send(conn, (char*)pkt+total, sizeof(p2p_data_pkg_t)-total,0)) < 0) {
+	        perror("upload_sendpkt: send pkg failed");
+	        return -1;
+	    }
+	    total += size;
+	}
     return 1;
 }
 
 int upload_recvreqpkt(p2p_request_pkg_t* pkt, int conn)
 {
-	// printf("upload_recvreqpkt: start\n");
-	char buf[sizeof(p2p_request_pkg_t)+2];
-    char c;
-    int idx = 0;
-    // state can be 0,1,2,3;
-    // 0 starting point
-    // 1 '!' received
-    // 2 '&' received, start receiving segment
-    // 3 '!' received,
-    // 4 '#' received, finish receiving segment
-    int state = 0;
-    while(recv(conn,&c,1,0)>0) {
-        if (state == 0) {
-            if(c=='!')
-                state = 1;
-        }
-        else if(state == 1) {
-            if(c=='&')
-                state = 2;
-            else
-                state = 0;
-        }
-        else if(state == 2) {
-        	buf[idx]=c;
-            idx++;
-            if(c=='!') {
-                state = 3;
-            }
-        }
-        else if(state == 3) {
-        	buf[idx]=c;
-            idx++;
-            if(c=='#') {
-                state = 0;
-                idx = 0;
-                memcpy(pkt,buf,sizeof(p2p_request_pkg_t));
-                // printf("upload_recvreqpkt: end\n");
-                return 1;
-            }
-            else if(c!='!') {
-                state = 2;
-            }
-        }
-    }
-    perror("upload_recvreqpkt: receive failed");
-    return -1;
+	int total = 0;
+	int size = 0;
+
+	while(total < sizeof(p2p_request_pkg_t)){
+		if((size = recv(conn, (char*)pkt+total, sizeof(p2p_request_pkg_t)-total, 0)) < 0){
+			perror("upload_recvreqpkt: receive failed");
+			return -1;
+		}
+		total += size;
+	}
+	return 1;
 }
 
 int start_listening(int port){
-	int listenfd, connfd, n;
+	int listenfd, connfd;
 	struct sockaddr_in cli_addr, serv_addr;
 	socklen_t clilen;
 
@@ -407,7 +340,7 @@ int start_listening(int port){
 	return -1;
 }
 
-int upload_thd(void* arg){
+void* upload_thd(void* arg){
 	send_thread_arg_t *send_arg = (send_thread_arg_t *) arg;
 	int  up_conn = -1, connfd = -1;
 	struct sockaddr_in up_addr, cli_addr;
@@ -418,7 +351,7 @@ int upload_thd(void* arg){
 			break;
 		}
 
-		int nextport = 1500+rand()%15000;
+		int nextport = 1500+(rand()%15000);
 		up_addr.sin_family = AF_INET;
 		up_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 		up_addr.sin_port = nextport;
@@ -469,18 +402,9 @@ int upload(int sockfd, p2p_request_pkg_t* pkg){
 	//if the pkg->timestamp < current timestemp
 
 	FILE *fp;
-	if((fp = fopen(pkg->filename,"r"))!=NULL){
-		fseek(fp,0,SEEK_END);
-		int size;
-		int total = (ftell(fp)-1)/BLOCK_SIZE+1;
-		if(total-1 == pkg->partition){
-			size = (ftell(fp)-1)%BLOCK_SIZE+1;
-		}else{
-			size = BLOCK_SIZE;
-		}
-
+	if((fp = fopen(pkg->filename,"rb"))!=NULL){
 		fseek(fp, pkg->partition * BLOCK_SIZE, SEEK_SET);
-		fread(package.data, sizeof(char), size, fp);
+		int size = fread(package.data, 1, BLOCK_SIZE, fp);
 		fclose(fp);
 		package.size = size;
         printf("file %s #%d sended\n", pkg->filename, pkg->partition);
