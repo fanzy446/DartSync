@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <arpa/inet.h>
+#include <openssl/md5.h>
 
 #define MAX_DOWNLOAD_THREAD 300
 #define MAX_UPLOAD_THREAD 300
@@ -33,6 +34,7 @@ int download(char* filename, int size, unsigned long int timestamp, char nodes[]
 
 	//resume download
 	char tmpFileName[FILE_NAME_LENGTH];
+	char md5key[MD5_LEN];
 	for(int i = 0; i < total; i++){
 		memset(tmpFileName, 0, FILE_NAME_LENGTH);
 		sprintf(tmpFileName, "%s_%d_%d", filename, timestamp, i);
@@ -67,10 +69,13 @@ int download(char* filename, int size, unsigned long int timestamp, char nodes[]
 			exist[i] = 2;
 			pthread_mutex_unlock(exist_mutex);
 
+			
+
 			p2p_request_arg_t* request_args = malloc(sizeof(p2p_request_arg_t)) ;
 			memset(request_args, 0, sizeof(p2p_request_arg_t));
 			memcpy(request_args->ip, nodes[curNode], IP_LEN);
 			memcpy(request_args->filename, filename, FILE_NAME_LENGTH);
+			memcpy(request_args->md5key, getLocalPartMD5(filename, i), MD5_LEN);
 			request_args->timestamp = timestamp;
 			request_args->partition = i;
 			request_args->exist = &(exist[i]);
@@ -488,3 +493,55 @@ int upload(int sockfd, p2p_request_pkg_t* pkg){
 	upload_sendpkt(&package, sockfd);
 	return 1;
 }
+
+
+
+/************ 
+MD5 things
+*************/
+
+char* getLocalPartMD5(char* filename, int partition){
+	char f_name[FILE_NAME_LENGTH];
+	memcpy(f_name, filename, FILE_NAME_LENGTH);
+	printf("MD5!:%s, %s, %d", filename, f_name, partition);
+
+	FILE *fp;
+	char tmp_part[BLOCK_SIZE];
+	int size;
+	if((fp = fopen(f_name,"r"))!=NULL){
+		fseek(fp,0,SEEK_END);
+		int total = (ftell(fp)-1)/BLOCK_SIZE+1;
+		if(total-1 == partition){
+			size = (ftell(fp)-1)%BLOCK_SIZE+1;
+		}else{
+			size = BLOCK_SIZE;
+		}
+
+		fseek(fp, partition * BLOCK_SIZE, SEEK_SET);
+		fread(tmp_part, sizeof(char), size, fp);
+		fclose(fp);
+	}
+
+	unsigned char c[MD5_DIGEST_LENGTH];
+    int i;
+    MD5_CTX mdContext;
+    //int bytes;
+    unsigned char data[1024];
+
+    MD5_Init (&mdContext);
+    // while ((bytes = fread (data, 1, 1024, inFile)) != 0){
+    //     MD5_Update (&mdContext, data, bytes);
+    // }
+    int k;
+    for(k = 0; k<size; k++){
+    	MD5_Update (&mdContext, data, tmp_part[k]);
+    }
+    MD5_Final (c,&mdContext);
+    for(i = 0; i < MD5_DIGEST_LENGTH; i++) printf("%02x", c[i]);
+    printf (" %s\n", filename);
+	return "1";
+}
+
+
+
+

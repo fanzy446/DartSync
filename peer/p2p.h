@@ -17,6 +17,7 @@ typedef struct p2p_data_pkg{
 typedef struct p2p_request_arg{
 	char ip[IP_LEN];
 	char filename[FILE_NAME_LENGTH];
+	char md5key[MD5_LEN];
 	unsigned long int timestamp;
 	int partition;
 	int* exist;
@@ -49,5 +50,7 @@ int upload_recvreqpkt(p2p_request_pkg_t* pkt, int conn);
 int upload_thd(void* arg);
 
 int upload(int sockfd, p2p_request_pkg_t* pkg); 
+
+char* getLocalPartMD5(char* filename, int partition);
 
 #endif

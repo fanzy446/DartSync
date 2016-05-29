@@ -173,9 +173,9 @@ void* tracker_Handshake(void *arg){
 				break; 
 			case FILE_UPDATE: 
 				printf("received file update packet\n");
-				if (tracker_compareFiletables(segment) > 0){
-					broadcastUpdates();
-				}
+				// if (tracker_compareFiletables(segment) > 0){
+				// 	broadcastUpdates();
+				// }
 				break; 
 		}
 	}
@@ -254,7 +254,7 @@ void tracker_compareFiletables(ptp_peer_t segment){
 			pthread_mutex_unlock(filetable_mutex);
 		}
 	}
-	return broadcast;
+	//return broadcast;
 }
 
 int broadcastUpdates(){

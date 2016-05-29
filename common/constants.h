@@ -27,4 +27,6 @@
 #define RESERVED_LEN 8
 #define FILE_NAME_LEN 100 
 
+#define MD5_LEN 32
+
 #endif
