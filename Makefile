@@ -1,4 +1,4 @@
-all: test/downloader test/uploader test/multi_downloaders DartSyncTracker
+all: test/downloader test/uploader test/multi_downloaders DartSyncTracker DartSyncPeer
 
 DartSyncTracker: DartSyncTracker.c common/peertable.o common/seg.o common/filetable.o 
 	gcc -Wall -pedantic -std=c99 -g -pthread DartSyncTracker.c common/peertable.o common/seg.o common/filetable.o -o DartSyncTracker
@@ -30,7 +30,7 @@ test/multi_downloaders: test/multi_downloaders.c peer/p2p.o
 test/uploader: test/uploader.c peer/p2p.o
 	gcc -Wall -pedantic -std=c99 -g -pthread test/uploader.c peer/p2p.o -o test/uploader
 
-#test/filemonitor_test: peer/filemonitor.c peer/filemonitor.h common/filetable.c common/filetable.h test/filemonitor_test.c
+#test/filemonitor_test: peer/filemonitor.c peer/filemonitor.h common/filetable.c common/filetable.h common/seg.c common/seg.h peer/p2p.c peer/p2p.h test/filemonitor_test.c
 #	gcc -Wall -D_GNU_SOURCE -pedantic -std=c99 -pthread -g test/filemonitor_test.c peer/filemonitor.c common/filetable.c -o test/filemonitor_test
 
 #test/filetable_test: common/filetable.c common/filetable.h test/filetable_test.c

@@ -35,9 +35,9 @@ int listenToTracker();
 int main(){
 
 	//Make filetable
-	// path = readConfigFile("./config.ini");
-	// filetable = initTable(path);
-	// watchDirectory(path);
+	path = readConfigFile("./config.ini");
+	filetable = initTable(path);
+	watchDirectory(path);
 
 	//create mutex for filetable
 	filetable_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
@@ -57,7 +57,7 @@ int main(){
 	return 0;
 
 	// Create struct and place all information to be passed to filemonitor thread
-	struct filemonitorArgs *args = malloc(sizeof(struct filemonitorArgs));
+	filemonitorArg_st *args = malloc(sizeof(filemonitorArg_st));
 	args->filetable = filetable;
 	args->filetable_mutex = filetable_mutex;
 	args->trackerconn = trackerconn;

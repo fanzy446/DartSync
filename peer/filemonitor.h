@@ -16,7 +16,7 @@
 
 #include "../common/filetable.h"
 #include "../common/seg.h"
-//#include "../common/p2p.h"
+#include "../peer/p2p.h"
 
 
 #define MAX_FILES 1024
