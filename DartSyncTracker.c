@@ -33,7 +33,8 @@ int tracker_listenForPeers();
 void* tracker_monitorAlive(void *arg);
 void* tracker_Handshake(void *arg);
 int tracker_acceptRegister();
-void tracker_compareFiletables(ptp_peer_t segment);
+int tracker_compareFiletables(ptp_peer_t segment);
+int broadcastUpdates();
 
 
 int main(){
@@ -201,7 +202,7 @@ int tracker_acceptRegister(int peerconn){
 
 
 //needs to take in the segments file table or the segment itself
-void tracker_compareFiletables(ptp_peer_t segment){
+int tracker_compareFiletables(ptp_peer_t segment){
 	Node *currNode; 
 	int i, broadcast;
 	int havePeerFile[segment.file_table_size];
