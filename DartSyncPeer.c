@@ -31,15 +31,13 @@ int seghandler();
 int receiveTrackerState();
 int peer_compareFiletables(ptp_tracker_t segment, int firstContact);
 int listenToTracker();
-int sendFileUpdate();
 
 int main(){
 
-
 	//Make filetable
-	// path = readConfigFile("./config.ini");
-	// filetable = initTable(path);
-	// watchDirectory(path);
+	path = readConfigFile("./config.ini");
+	filetable = initTable(path);
+	watchDirectory(path);
 
 	//create mutex for filetable
 	filetable_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
@@ -49,7 +47,7 @@ int main(){
 	trackerconn = peer_connToTracker();
 	sendregister();
 	if (receiveTrackerState() > 0){
-		sendFileUpdate();
+		sendFileUpdate(filetable, filetable_mutex, trackerconn);
 	}
 
 	pthread_t heartbeat_thread;
@@ -58,8 +56,14 @@ int main(){
 	sleep(10);
 	return 0;
 
+	// Create struct and place all information to be passed to filemonitor thread
+	filemonitorArg_st *args = malloc(sizeof(filemonitorArg_st));
+	args->filetable = filetable;
+	args->filetable_mutex = filetable_mutex;
+	args->trackerconn = trackerconn;
+
 	// pthread_t fileMonitor_thread;
-	// pthread_create(&fileMonitor_thread, NULL, monitor, (void *) filetable);
+	// pthread_create(&fileMonitor_thread, NULL, monitor, (void *) filemonitorArgs);
 
 	listenToTracker();
 
@@ -115,21 +119,6 @@ void *sendheartbeat(void *arg){
 	}
 }
 
-int sendFileUpdate(){
-	ptp_peer_t fileUpdate;
-	fileUpdate.type = FILE_UPDATE; 
-	memcpy(fileUpdate.peer_ip, getMyIP(), IP_LEN);
-	packFileTable(filetable, filetable_mutex, fileUpdate.sendNode, &fileUpdate.file_table_size);
-	if (peer_sendseg(trackerconn, &fileUpdate) < 0){
-		printf("Failed to send file update packet\n");
-		return -1; 
-	}
-	else{
-		printf("File update packet sent\n");
-		return 1; 
-	}
-}
-
 
 
 int sendregister(){
@@ -162,7 +151,9 @@ int receiveTrackerState(){
 	for (int i = 0 ; i < segment.file_table_size; i++){
 		printf("%s %d %ld\n", segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp);
 	}
+	pthread_mutex_lock(filetable_mutex);
 	peer_compareFiletables(segment, 1);
+	pthread_mutex_unlock(filetable_mutex);
 	return 1; 
 
 }
@@ -170,7 +161,7 @@ int receiveTrackerState(){
 
 int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 	Node *currNode;
-	char *filepath; 
+	char filepath[LEN_FILE_NAME]; 
 	int i; 
 	int sendUpdate;
 	int found[segment.file_table_size];
@@ -193,9 +184,7 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 				}
 				else if (currNode->timestamp < segment.sendNode[i].timestamp){
 					printf("Peer has outdated file '%s'... downloading from peers\n", currNode->name);
-					pthread_mutex_lock(filetable_mutex);
 					modifyNode(filetable, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, NULL);
-					pthread_mutex_unlock(filetable_mutex);
 
 					//block listening
 					blockFileWriteListening(); 
@@ -213,11 +202,9 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 				sendUpdate = 1; 
 			}
 			else{
-				pthread_mutex_lock(filetable_mutex);
 				deleteNode(filetable, currNode->name);
-				pthread_mutex_lock(filetable_mutex);
 
-				strcat(filepath, "%s/%s", path, currNode->name);
+				sprintf(filepath, "%s/%s", path, currNode->name);
 				blockFileDeleteListening();
 				remove(filepath);
 				unblockFileDeleteListening();
@@ -234,9 +221,7 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 			printf("Peer doesn't have file %s that tracker has\n", segment.sendNode[i].name);
 
 			//Add node to the mutex corresponding to the file
-			pthread_mutex_lock(filetable_mutex);
 			addNewNode(filetable, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, NULL);
-			pthread_mutex_unlock(filetable_mutex);
 
 			blockFileAddListening();
 			//download(segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
