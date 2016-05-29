@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <sys/stat.h>
 #include <arpa/inet.h>
 #include <openssl/md5.h>
 
@@ -19,6 +20,7 @@ pthread_mutex_t* upload_running_mutex;
 
 int download(char* filename, int size, unsigned long int timestamp, char nodes[][IP_LEN], int numOfNodes){
 	int total = (size-1)/BLOCK_SIZE+1;
+	char md5keys[total][MD5_LEN+1];
 	printf("download: size %d, split into %d parts\n", size, total);
 	int curNode = 0;
 
@@ -34,7 +36,6 @@ int download(char* filename, int size, unsigned long int timestamp, char nodes[]
 
 	//resume download
 	char tmpFileName[FILE_NAME_LENGTH];
-	char md5key[MD5_LEN];
 	for(int i = 0; i < total; i++){
 		memset(tmpFileName, 0, FILE_NAME_LENGTH);
 		sprintf(tmpFileName, "%s_%d_%d", filename, timestamp, i);
@@ -42,6 +43,57 @@ int download(char* filename, int size, unsigned long int timestamp, char nodes[]
 			exist[i] = 1;
 		}
 	}
+
+	//generate empty MD5 list
+	memset(md5keys, 0, total*(MD5_LEN+1));
+
+	for(int m = 0; m < total; m++){
+		strcpy(md5keys[m], "NIL");
+	}
+	printf("total:%d\n", total);
+
+	if( access(filename, F_OK) != -1 ) {
+		FILE *fp;
+		
+		struct stat st;
+		stat(filename, &st);
+		int local_total = (st.st_size-1)/BLOCK_SIZE+1;
+
+		int size;
+		int partition_count = 0;
+		if((fp = fopen(filename,"r"))!=NULL){
+			fseek(fp,0,SEEK_END);
+			for(int t=0; t < local_total; t++){
+				int local_total = (ftell(fp)-1)/BLOCK_SIZE+1;
+				if(local_total-1 == partition_count){
+					size = (ftell(fp)-1)%BLOCK_SIZE+1;
+				}else{
+					size = BLOCK_SIZE;
+				}
+				partition_count ++;
+			
+				unsigned char c[MD5_LEN];
+				char data[size];
+				fseek(fp, t * BLOCK_SIZE, SEEK_SET);
+				fread(data, sizeof(char), size, fp);
+
+				MD5_CTX mdContext;
+
+				MD5_Init (&mdContext);
+				MD5_Update (&mdContext, data, size);
+    			MD5_Final (c,&mdContext);
+
+				for(int k = 0; k < 16; ++k){
+				    sprintf(&md5keys[t][k*2], "%02x", (unsigned int)c[k]);
+				}
+				printf("local part %d: %s\n", t, md5keys[t]);
+			}
+			fclose(fp);
+		}
+	}
+	
+	
+   
 
 	while(end != 1){
 		end = 1;
@@ -75,7 +127,7 @@ int download(char* filename, int size, unsigned long int timestamp, char nodes[]
 			memset(request_args, 0, sizeof(p2p_request_arg_t));
 			memcpy(request_args->ip, nodes[curNode], IP_LEN);
 			memcpy(request_args->filename, filename, FILE_NAME_LENGTH);
-			memcpy(request_args->md5key, getLocalPartMD5(filename, i), MD5_LEN);
+			memcpy(request_args->md5key, md5keys[i], MD5_LEN+1);
 			request_args->timestamp = timestamp;
 			request_args->partition = i;
 			request_args->exist = &(exist[i]);
@@ -148,6 +200,7 @@ void* singleDownload(void* args){
 		memcpy(pkg.filename, request_args->filename, FILE_NAME_LENGTH);
 		pkg.timestamp = request_args->timestamp;
 		pkg.partition = request_args->partition;
+		memcpy(pkg.md5key, request_args->md5key, MD5_LEN+1);
 		if(download_sendpkt(&pkg, conn) < 0){
 			perror("singleDownload: download_sendpkt failed 1.");
 			break;
@@ -179,13 +232,17 @@ void* singleDownload(void* args){
 	    }
 
 		//store in a file
-		char filename[FILE_NAME_LENGTH];
-		memset(filename, 0, FILE_NAME_LENGTH);
-		sprintf(filename, "%s_%d_%d", request_args->filename, request_args->timestamp, request_args->partition);
-		FILE* f = fopen(filename,"w");
-		fwrite(recv_pkg.data,recv_pkg.size,1,f);
-		fclose(f);
-		code = 1;
+		if(strcmp(recv_pkg.data, FLAG_SAME) == 0){
+			//TODO:
+		}else{
+			char filename[FILE_NAME_LENGTH];
+			memset(filename, 0, FILE_NAME_LENGTH);
+			sprintf(filename, "%s_%d_%d", request_args->filename, request_args->timestamp, request_args->partition);
+			FILE* f = fopen(filename,"w");
+			fwrite(recv_pkg.data,recv_pkg.size,1,f);
+			fclose(f);
+			code = 1;
+		}
 		break;
 	}
 	if(conn >= 0){
@@ -390,12 +447,12 @@ int start_listening(int port){
 	        break;
 	    }
 	    printf("Connection accepted\n");
-
+		printf("0\n");
 	    p2p_request_pkg_t* req_pkt = malloc(sizeof(p2p_request_pkg_t));
 	    memset(req_pkt, 0, sizeof(p2p_request_pkg_t));
-
+		printf("1\n");
 	    upload_recvreqpkt(req_pkt, connfd);
-	    	
+	    printf("2\n");
 		printf("from ip:%s | port:%d | partition:%d\n", inet_ntoa(cli_addr.sin_addr), cli_addr.sin_port, req_pkt->partition);
 
 		send_thread_arg_t* send_arg = malloc(sizeof(send_thread_arg_t));
@@ -483,63 +540,29 @@ int upload(int sockfd, p2p_request_pkg_t* pkg){
 		}else{
 			size = BLOCK_SIZE;
 		}
-
+		char data[size];
 		fseek(fp, pkg->partition * BLOCK_SIZE, SEEK_SET);
-		fread(package.data, sizeof(char), size, fp);
+		fread(data, sizeof(char), size, fp);
 		fclose(fp);
+
+		unsigned char c[MD5_LEN];
+
+		MD5_CTX mdContext;
+
+		MD5_Init (&mdContext);
+		MD5_Update (&mdContext, data, size);
+    	MD5_Final (c,&mdContext);
+
+		char md5key[MD5_LEN+1];
+		for(int k = 0; k < 16; ++k){
+			sprintf(&md5key[k*2], "%02x", (unsigned int)c[k]);
+		}
+		printf("MD5: my-%s | their-%s\n",md5key, pkg->md5key);
 		package.size = size;
         printf("file %s #%d sended\n", pkg->filename, pkg->partition);
 	}
 	upload_sendpkt(&package, sockfd);
 	return 1;
-}
-
-
-
-/************ 
-MD5 things
-*************/
-
-char* getLocalPartMD5(char* filename, int partition){
-	char f_name[FILE_NAME_LENGTH];
-	memcpy(f_name, filename, FILE_NAME_LENGTH);
-	printf("MD5!:%s, %s, %d", filename, f_name, partition);
-
-	FILE *fp;
-	char tmp_part[BLOCK_SIZE];
-	int size;
-	if((fp = fopen(f_name,"r"))!=NULL){
-		fseek(fp,0,SEEK_END);
-		int total = (ftell(fp)-1)/BLOCK_SIZE+1;
-		if(total-1 == partition){
-			size = (ftell(fp)-1)%BLOCK_SIZE+1;
-		}else{
-			size = BLOCK_SIZE;
-		}
-
-		fseek(fp, partition * BLOCK_SIZE, SEEK_SET);
-		fread(tmp_part, sizeof(char), size, fp);
-		fclose(fp);
-	}
-
-	unsigned char c[MD5_DIGEST_LENGTH];
-    int i;
-    MD5_CTX mdContext;
-    //int bytes;
-    unsigned char data[1024];
-
-    MD5_Init (&mdContext);
-    // while ((bytes = fread (data, 1, 1024, inFile)) != 0){
-    //     MD5_Update (&mdContext, data, bytes);
-    // }
-    int k;
-    for(k = 0; k<size; k++){
-    	MD5_Update (&mdContext, data, tmp_part[k]);
-    }
-    MD5_Final (c,&mdContext);
-    for(i = 0; i < MD5_DIGEST_LENGTH; i++) printf("%02x", c[i]);
-    printf (" %s\n", filename);
-	return "1";
 }
 
 

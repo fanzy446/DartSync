@@ -29,4 +29,6 @@
 
 #define MD5_LEN 32
 
+#define FLAG_SAME "__FLAG_SAME__"
+
 #endif

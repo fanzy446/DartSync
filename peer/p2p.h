@@ -1,10 +1,12 @@
 #ifndef P2P_H 
 #define P2P_H
 
+#include <stdio.h>
 #include "../common/constants.h"
 
 typedef struct p2p_request_pkg{
 	char filename[FILE_NAME_LENGTH];
+	char md5key[MD5_LEN];
 	unsigned long int timestamp;
 	int partition;
 } p2p_request_pkg_t;
@@ -51,6 +53,5 @@ int upload_thd(void* arg);
 
 int upload(int sockfd, p2p_request_pkg_t* pkg); 
 
-char* getLocalPartMD5(char* filename, int partition);
 
 #endif
