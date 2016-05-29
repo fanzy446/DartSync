@@ -30,6 +30,13 @@ test/multi_downloaders: test/multi_downloaders.c peer/p2p.o
 test/uploader: test/uploader.c peer/p2p.o
 	gcc -Wall -pedantic -std=c99 -g -pthread test/uploader.c peer/p2p.o -o test/uploader
 
+#test/filemonitor_test: peer/filemonitor.c peer/filemonitor.h common/filetable.c common/filetable.h test/filemonitor_test.c
+#	gcc -Wall -D_GNU_SOURCE -pedantic -std=c99 -pthread -g test/filemonitor_test.c peer/filemonitor.c common/filetable.c -o test/filemonitor_test
+
+#test/filetable_test: common/filetable.c common/filetable.h test/filetable_test.c
+#	gcc -D_GNU_SOURCE -pedantic -std=c99 -g test/filetable_test.c common/filetable.c -o test/filetable_test
+
+
 clean:
 	rm -rf DartSyncTracker
 	rm -rf DartSyncPeer
@@ -40,6 +47,8 @@ clean:
 	rm -rf test/downloader
 	rm -rf test/uploader
 	rm -rf test/multi_downloaders
+	rm -f  test/filetable_test
+	rm -f  test/filemonitor_test
 	rm -rf test/*.o
 
 
