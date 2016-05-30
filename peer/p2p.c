@@ -114,10 +114,7 @@ int download(char* rootpath, char* filename, int size, unsigned long int timesta
 	free(exist);
 
 	//combine temporary files
-	char recvFile[FILE_NAME_LENGTH];
-	memset(recvFile, 0, FILE_NAME_LENGTH);
-	sprintf(recvFile, "%s_recv", realFileName);
-	FILE* recv = fopen(recvFile,"wb");
+	FILE* recv = fopen(realFileName,"wb");
 
 	char *buffer = (char*)malloc(BLOCK_SIZE);
 	int singleSize = 0;
