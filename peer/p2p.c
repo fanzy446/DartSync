@@ -286,8 +286,8 @@ int upload_recvreqpkt(p2p_request_pkg_t* pkt, int conn)
 	return 1;
 }
 
-void* start_listening(char* rootpath){
-
+void* start_listening(void* arg){
+	char *rootpath = (char *) arg;
 	int listenfd, connfd;
 	struct sockaddr_in cli_addr, serv_addr;
 	socklen_t clilen;
@@ -347,7 +347,7 @@ void* start_listening(char* rootpath){
 	}
 	free(upload_running_mutex);
 	close(listenfd);
-	return -1;
+	return NULL;
 }
 
 void* upload_thd(void* arg){

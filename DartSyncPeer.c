@@ -5,6 +5,7 @@
 #include <string.h> 
 #include <stdlib.h> 
 #include <stdio.h>
+#include <signal.h>
 #include <netdb.h> 
 #include <unistd.h>
 #include "common/constants.h"
@@ -31,6 +32,7 @@ int seghandler();
 int receiveTrackerState(int firstContact);
 int peer_compareFiletables(ptp_tracker_t segment, int firstContact);
 int listenToTracker();
+void peer_stop();
 
 int main(){
 
@@ -114,7 +116,7 @@ void peer_stop(){
 	printf("Received SIGINT\n");
 	close(trackerconn);
 	trackerconn = -1; 
-	destroyTable(filetable){
+	destroyTable(filetable);
 	free(filetable_mutex);
 	exit(0); 
 }
@@ -195,7 +197,7 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 					//block listening
 					blockFileWriteListening(); 
 					printf("filename to download: %s\n", segment.sendNode[i].name);
-					download(segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
+					download(path, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
 					unblockFileWriteListening();
 					break; 
 				}
@@ -210,7 +212,6 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 			}
 			else{
 				deleteNode(filetable, currNode->name);
-				sprintf(filepath, "%s/%s", path, currNode->name);
 				blockFileDeleteListening();
 				remove(filepath);									//should work for directories unless we need to recursively remove files from it
 				unblockFileDeleteListening();
@@ -228,7 +229,6 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 
 			//Add node to the mutex corresponding to the file
 			addNewNode(filetable, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, NULL);
-			sprintf(filepath, "%s/%s", path, segment.sendNode[i].name);
 
 			if (segment.sendNode[i].size == -1){
 				if (mkdir(filepath, 0777) == -1){
@@ -238,7 +238,7 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 			else{
 				blockFileAddListening();
 				printf("Filename to download: %s\n", segment.sendNode[i].name); 
-				download(segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
+				download(path, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
 				unblockFileAddListening();
 			}
 		}

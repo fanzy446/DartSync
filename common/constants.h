@@ -7,6 +7,8 @@
 
 #define CONNECTION_PORT 1234
 
+#define WEB_PORT 1237
+
 #define TEST 2
 
 #define TRACKERPORT 5008

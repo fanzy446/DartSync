@@ -34,7 +34,7 @@ typedef struct send_thread_arg
 int download(char* rootpath, char* filename, int size, unsigned long int timestamp, char nodes[][IP_LEN], int numOfNodes);
 
 
-void* start_listening(char* rootpath);
+void* start_listening(void* arg);
 
 void* singleDownload(void* args);
 
