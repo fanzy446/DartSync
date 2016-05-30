@@ -34,11 +34,13 @@ int listenToTracker();
 
 int main(){
 
-	//Make filetable
+	//register a signal handler which is used to terminate the process
+	signal(SIGINT, peer_stop);
+
+	//Make filetable and print it
 	path = readConfigFile("./config.ini");
 	filetable = initTable(path);
 	watchDirectory(path);
-
 	printTable(filetable);
 
 	//create mutex for filetable
@@ -56,15 +58,15 @@ int main(){
 		sendFileUpdate(filetable, filetable_mutex, trackerconn);
 	}
 
+	//Start thread to let tracker know it is still alive
 	pthread_t heartbeat_thread;
 	pthread_create(&heartbeat_thread, NULL, sendheartbeat, (void *) 0);
 
-	// Create struct and place all information to be passed to filemonitor thread
+	// Create filemonitor thread and its args
 	filemonitorArg_st *args = malloc(sizeof(filemonitorArg_st));
 	args->filetable = filetable;
 	args->filetable_mutex = filetable_mutex;
 	args->trackerconn = trackerconn;
-
 	pthread_t fileMonitor_thread;
 	pthread_create(&fileMonitor_thread, NULL, monitor, (void *) args);
 
@@ -108,9 +110,13 @@ int peer_connToTracker(){
 
 }
 
-int peer_disconnectFromTracker(int trackerconn){
+void peer_stop(){
+	printf("Received SIGINT\n");
 	close(trackerconn);
-	return 1; 
+	trackerconn = -1; 
+	destroyTable(filetable){
+	free(filetable_mutex);
+	exit(0); 
 }
 
 void *sendheartbeat(void *arg){
@@ -142,6 +148,7 @@ int receiveTrackerState(int firstContact){
 
 	if (peer_recvseg(trackerconn, &segment) < 0){
 		printf("Receive failed\n");
+		trackerconn = -100; 
 		return -1;
 	}
 	printf("Received global file state\n");
@@ -187,6 +194,7 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 
 					//block listening
 					blockFileWriteListening(); 
+					printf("filename to download: %s\n", segment.sendNode[i].name);
 					download(segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
 					unblockFileWriteListening();
 					break; 
@@ -229,6 +237,7 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 			}
 			else{
 				blockFileAddListening();
+				printf("Filename to download: %s\n", segment.sendNode[i].name); 
 				download(segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
 				unblockFileAddListening();
 			}

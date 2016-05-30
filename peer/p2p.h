@@ -32,7 +32,7 @@ typedef struct send_thread_arg
 
 int download(char* filename, int size, unsigned long int timestamp, char nodes[][IP_LEN], int numOfNodes);
 
-int start_listening(int port);
+void* start_listening(void* arg);
 
 //////////////////////////////////
 
