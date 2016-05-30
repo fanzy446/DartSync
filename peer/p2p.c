@@ -55,7 +55,7 @@ int download(char* rootpath, char* filename, int size, unsigned long int timesta
 	char tmpFileName[FILE_NAME_LENGTH];
 	for(int i = 0; i < total; i++){
 		memset(tmpFileName, 0, FILE_NAME_LENGTH);
-		sprintf(tmpFileName, "%s_%lu_%d", realFileName, timestamp, i);
+		sprintf(tmpFileName, "%s_%lu_%d.dartsync", realFileName, timestamp, i);
 		if( access( tmpFileName, F_OK ) != -1 ) {
 			FILE* fp = fopen(tmpFileName,"r");
 			fseek(fp, 0L, SEEK_END);
@@ -173,7 +173,7 @@ int download(char* rootpath, char* filename, int size, unsigned long int timesta
 	for(int i = 0; i < total; i++){
 		char tmpFile[FILE_NAME_LENGTH];
 		memset(tmpFile, 0, FILE_NAME_LENGTH);
-		sprintf(tmpFile, "%s_%lu_%d", realFileName, timestamp, i);
+		sprintf(tmpFile, "%s_%lu_%d.dartsync", realFileName, timestamp, i);
 
 		FILE* tmp = fopen(tmpFile,"rb");
 		memset(buffer, 0, BLOCK_SIZE);
@@ -283,7 +283,7 @@ void* singleDownload(void* args){
 			
 			char filename[FILE_NAME_LENGTH];
 			memset(filename, 0, FILE_NAME_LENGTH);
-			sprintf(filename, "%s_%lu_%d", realFileName, request_args->timestamp, request_args->partition);
+			sprintf(filename, "%s_%lu_%d.dartsync", realFileName, request_args->timestamp, request_args->partition);
 			FILE* f = fopen(filename,"wb");
 			fwrite(recv_pkg.data,recv_pkg.size,1,f);
 			fclose(f);
