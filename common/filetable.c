@@ -121,7 +121,7 @@ void printTable(FileTable* table){
 	printf("printTable shows all nodes in a table:\n");
 	Node* curnode = table->head;
 	while(curnode != NULL){
-		printf("Name:%s, Size:%d, Timestamp:%ld \n", curnode->name, curnode->size, curnode->timestamp);
+		printf("Name:%s, Size:%d, Timestamp:%ld IP:%s \n", curnode->name, curnode->size, curnode->timestamp, curnode->peerip[0]);
 		curnode = curnode->pNext;
 	}
 }
