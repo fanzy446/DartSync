@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <sys/types.h>
-// #include <linux/inotify.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <dirent.h>

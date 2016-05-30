@@ -28,46 +28,50 @@ int peer_disconnectFromTracker(int trackerconn);
 void *sendheartbeat(void *arg);
 int sendregister();
 int seghandler();
-int receiveTrackerState();
+int receiveTrackerState(int firstContact);
 int peer_compareFiletables(ptp_tracker_t segment, int firstContact);
 int listenToTracker();
 
 int main(){
 
 	//Make filetable
-	// path = readConfigFile("./config.ini");
-	// filetable = initTable(path);
-	// watchDirectory(path);
+	path = readConfigFile("./config.ini");
+	filetable = initTable(path);
+	watchDirectory(path);
+
+	printTable(filetable);
 
 	//create mutex for filetable
 	filetable_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
 	pthread_mutex_init(filetable_mutex, NULL);
 
+	//Create thread to listen to peers asking for downloads
+	pthread_t peer2peer_thread;
+	pthread_create(&peer2peer_thread, NULL, start_listening, (void *) 0);
+
 	//Establish connection to tracker
 	trackerconn = peer_connToTracker();
 	sendregister();
-	if (receiveTrackerState() > 0){
+	if (receiveTrackerState(1) > 0){
 		sendFileUpdate(filetable, filetable_mutex, trackerconn);
 	}
 
 	pthread_t heartbeat_thread;
 	pthread_create(&heartbeat_thread, NULL, sendheartbeat, (void *) 0);
 
-	sleep(10);
-	return 0;
-
 	// Create struct and place all information to be passed to filemonitor thread
-	struct filemonitorArgs *args = malloc(sizeof(struct filemonitorArgs));
+	filemonitorArg_st *args = malloc(sizeof(filemonitorArg_st));
 	args->filetable = filetable;
 	args->filetable_mutex = filetable_mutex;
 	args->trackerconn = trackerconn;
 
-	// pthread_t fileMonitor_thread;
-	// pthread_create(&fileMonitor_thread, NULL, monitor, (void *) filemonitorArgs);
+	pthread_t fileMonitor_thread;
+	pthread_create(&fileMonitor_thread, NULL, monitor, (void *) args);
 
-	listenToTracker();
 
-	return 0; 
+	while (1){
+		receiveTrackerState(0);
+	}
 }
 
 // This function connects a peer to the tracker
@@ -120,7 +124,6 @@ void *sendheartbeat(void *arg){
 }
 
 
-
 int sendregister(){
 	ptp_peer_t registerPacket;
 	registerPacket.type = REGISTER;
@@ -132,13 +135,9 @@ int sendregister(){
 	printf("Register packet sent\n");
 	return 1; 
 }
-int listenToTracker(){
-	while (1){
 
-	}
-}
 
-int receiveTrackerState(){
+int receiveTrackerState(int firstContact){
 	ptp_tracker_t segment; 
 
 	if (peer_recvseg(trackerconn, &segment) < 0){
@@ -152,7 +151,7 @@ int receiveTrackerState(){
 		printf("%s %d %ld\n", segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp);
 	}
 	pthread_mutex_lock(filetable_mutex);
-	peer_compareFiletables(segment, 1);
+	peer_compareFiletables(segment, firstContact);
 	pthread_mutex_unlock(filetable_mutex);
 	return 1; 
 
@@ -188,7 +187,7 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 
 					//block listening
 					blockFileWriteListening(); 
-					//download this file from peers
+					download(segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
 					unblockFileWriteListening();
 					break; 
 				}
@@ -203,10 +202,9 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 			}
 			else{
 				deleteNode(filetable, currNode->name);
-
 				sprintf(filepath, "%s/%s", path, currNode->name);
 				blockFileDeleteListening();
-				remove(filepath);
+				remove(filepath);									//should work for directories unless we need to recursively remove files from it
 				unblockFileDeleteListening();
 			}
 		}
@@ -222,10 +220,18 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 
 			//Add node to the mutex corresponding to the file
 			addNewNode(filetable, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, NULL);
+			sprintf(filepath, "%s/%s", path, segment.sendNode[i].name);
 
-			blockFileAddListening();
-			//download(segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
-			unblockFileAddListening();
+			if (segment.sendNode[i].size == -1){
+				if (mkdir(filepath, 0777) == -1){
+					printf("Directory creation failed\n");
+				}
+			}
+			else{
+				blockFileAddListening();
+				download(segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
+				unblockFileAddListening();
+			}
 		}
 	}
 

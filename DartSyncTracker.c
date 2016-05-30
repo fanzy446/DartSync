@@ -33,7 +33,9 @@ int tracker_listenForPeers();
 void* tracker_monitorAlive(void *arg);
 void* tracker_Handshake(void *arg);
 int tracker_acceptRegister();
-void tracker_compareFiletables(ptp_peer_t segment);
+int tracker_compareFiletables(ptp_peer_t segment);
+int broadcastUpdates();
+void *connWeb(void *arg); 
 
 
 int main(){
@@ -119,6 +121,7 @@ void* tracker_monitorAlive(void *arg){
 		while (peer != NULL){
 			//remove all dead peers
 			if (currentTime.tv_sec - peer->last_time_stamp > HEARTRATE && peer->last_time_stamp != 0){
+				printf("Peer has disconnected\n"); 
 				tracker_peer_t *toRemove = peer; 
 				peer = peer->next;
 				tracker_peertableremove(peertable, toRemove);
@@ -128,10 +131,8 @@ void* tracker_monitorAlive(void *arg){
 		}
 		pthread_mutex_unlock(peertable_mutex);
 	}
-
-
-
 }
+
 int tracker_keepAlive(tracker_peer_t *peer){
 	//Get time
 	struct timeval heartbeat; 
@@ -144,6 +145,45 @@ int tracker_keepAlive(tracker_peer_t *peer){
 	return 1; 
 
 }
+
+// void *connWeb(void *arg){
+// 	int listensd;
+// 	int webconn;
+// 	struct sockaddr_in listen_addr; 
+// 	struct sockaddr_in webapp_addr;
+// 	socklen_t webapp_addr_len;
+
+// 	if ((listensd = socket(AF_INET, SOCK_STREAM, 0)) < 0 ) {
+// 		printf("socket creation failed\n");
+// 		return -1;
+// 	}
+
+// 	memset(&listen_addr, 0, sizeof(listen_addr));
+// 	listen_addr.sin_family = AF_INET;
+// 	listen_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+// 	listen_addr.sin_port = htons(TRACKERPORT);
+
+// 	webapp_addr_len = sizeof(webapp_addr);
+
+// 	if (bind(listensd, (struct sockaddr *)&listen_addr, sizeof(listen_addr)) < 0){
+// 		printf("Tracker listensd bind failed\n");
+// 		return -1; 
+// 	}
+
+// 	if (listen(listensd, 20) < 0){
+// 		printf("Tracker listen failed\n");
+// 		return -1;
+// 	}
+
+// 	while (1){
+// 		if ((webconn = accept(listensd, (struct sockaddr*) &webconn_addr, &webconn_addr_len)) != -1){
+// 			while (1){
+// 				char buf[10000];
+				
+// 		}
+// 	}
+// }
+
 
 // Thread that recieves messages from a specific peer and responds if needed
 // there is a handshake thread for each peer
@@ -201,7 +241,7 @@ int tracker_acceptRegister(int peerconn){
 
 
 //needs to take in the segments file table or the segment itself
-void tracker_compareFiletables(ptp_peer_t segment){
+int tracker_compareFiletables(ptp_peer_t segment){
 	Node *currNode; 
 	int i, broadcast;
 	int havePeerFile[segment.file_table_size];
@@ -273,6 +313,8 @@ int broadcastUpdates(){
 			pthread_mutex_unlock(peertable_mutex);
 			return -1;
 		}
+		printf("Broadcast filetable\n");
+		currPeer = currPeer->next; 
 	}
 	pthread_mutex_unlock(peertable_mutex);
 	return 1; 

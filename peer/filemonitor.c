@@ -186,7 +186,6 @@ void* monitor(void* arg){
       struct inotify_event *event = ( struct inotify_event * ) &buffer[ i ];
       if ( event->len ) {
         isInDir = isInFileInfoList(event->name, files);
-        freeFileInfoList(files);
 
         if (*(event->name)=='.'){
           // IGNORE AS IT IS HIDDEN FILE
@@ -269,6 +268,7 @@ void* monitor(void* arg){
       }
       i += EVENT_SIZE + event->len;
     }
+    freeFileInfoList(files);
     //printTable(table); // for debug purpose
   }
   inotify_rm_watch( fd, wd );

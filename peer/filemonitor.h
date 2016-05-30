@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <sys/types.h>
-// #include <linux/inotify.h>
+#include <sys/inotify.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <dirent.h>
@@ -16,7 +16,7 @@
 
 #include "../common/filetable.h"
 #include "../common/seg.h"
-//#include "../common/p2p.h"
+#include "../peer/p2p.h"
 
 
 #define MAX_FILES 1024

@@ -14,7 +14,7 @@
 
 
 int getFileSize(char* fileName){
-	FILE *f = fopen(fileName,"r");
+	FILE *f = fopen(fileName,"rb");
 	fseek(f,0,SEEK_END);
 	int size = ftell(f);
 	fclose(f);
@@ -25,7 +25,7 @@ int getFileSize(char* fileName){
 int main(int argc , char *argv[])
 {
  	char* large_fileName = "test_large.txt";
- 	char* short_fileName1 = "test_short_1.txt";
+ 	char* short_fileName1 = "haha.jpg";
  	char* short_fileName2 = "test_short_2.txt";
 
 	int size1 = getFileSize(large_fileName);
@@ -33,13 +33,7 @@ int main(int argc , char *argv[])
 	int size3 = getFileSize(short_fileName2);
 
 	unsigned long int timestamp = 1111111;
-	//char** nodes = malloc(sizeof(char*));
-	
-	//nodes[0] = "127.0.0.1";
-	// nodes[0] = "129.170.214.115";
-	// nodes[1] = "129.170.213.62";
-	// nodes[2] = "129.170.214.100";
-	// nodes[0] = "129.170.212.87";
+
 	char nodes[][IP_LEN] = {"129.170.214.115", "129.170.213.62", "129.170.214.100"};
 
 	download(large_fileName, size1, timestamp, nodes, 3);
