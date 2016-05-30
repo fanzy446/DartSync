@@ -50,9 +50,13 @@ int main(){
 	filetable_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
 	pthread_mutex_init(filetable_mutex, NULL);
 
-	// //Start listenheartbeat thread 
-	// pthread_t monitorAlive_thread;
-	// pthread_create(&monitorAlive_thread, NULL, tracker_monitorAlive, (void *) 0);
+	//Start webapp connection thread
+	pthread_t webconn_thread;
+	pthread_create(&webconn_thread, NULL, connWeb, (void*) 0);
+
+	//Start listenheartbeat thread 
+	pthread_t monitorAlive_thread;
+	pthread_create(&monitorAlive_thread, NULL, tracker_monitorAlive, (void *) 0);
 
 	//Add peer connections and create handshake threads for each of them
 	tracker_listenForPeers();
@@ -146,43 +150,57 @@ int tracker_keepAlive(tracker_peer_t *peer){
 
 }
 
-// void *connWeb(void *arg){
-// 	int listensd;
-// 	int webconn;
-// 	struct sockaddr_in listen_addr; 
-// 	struct sockaddr_in webapp_addr;
-// 	socklen_t webapp_addr_len;
+void *connWeb(void *arg){
+	int listensd;
+	int webconn;
+	Node *currNode; 
+	struct sockaddr_in listen_addr; 
+	struct sockaddr_in webconn_addr;
+	socklen_t webconn_addr_len;
 
-// 	if ((listensd = socket(AF_INET, SOCK_STREAM, 0)) < 0 ) {
-// 		printf("socket creation failed\n");
-// 		return -1;
-// 	}
+	if ((listensd = socket(AF_INET, SOCK_STREAM, 0)) < 0 ) {
+		printf("socket creation failed\n");
+		return NULL;
+	}
 
-// 	memset(&listen_addr, 0, sizeof(listen_addr));
-// 	listen_addr.sin_family = AF_INET;
-// 	listen_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-// 	listen_addr.sin_port = htons(TRACKERPORT);
+	memset(&listen_addr, 0, sizeof(listen_addr));
+	listen_addr.sin_family = AF_INET;
+	listen_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	listen_addr.sin_port = htons(WEB_PORT);
 
-// 	webapp_addr_len = sizeof(webapp_addr);
+	webconn_addr_len = sizeof(webconn_addr);
 
-// 	if (bind(listensd, (struct sockaddr *)&listen_addr, sizeof(listen_addr)) < 0){
-// 		printf("Tracker listensd bind failed\n");
-// 		return -1; 
-// 	}
+	if (bind(listensd, (struct sockaddr *)&listen_addr, sizeof(listen_addr)) < 0){
+		printf("Tracker listensd bind failed\n");
+		return NULL;
+	}
 
-// 	if (listen(listensd, 20) < 0){
-// 		printf("Tracker listen failed\n");
-// 		return -1;
-// 	}
+	if (listen(listensd, 20) < 0){
+		printf("Tracker listen failed\n");
+		return NULL;
+	}
 
-// 	while (1){
-// 		if ((webconn = accept(listensd, (struct sockaddr*) &webconn_addr, &webconn_addr_len)) != -1){
-// 			while (1){
-// 				char buf[10000];
+	while (1){
+		if ((webconn = accept(listensd, (struct sockaddr*) &webconn_addr, &webconn_addr_len)) != -1){
+			while (1){
+				char filetablebuf[10000]; 
+				char nodebuf[300];
+				memset(filetablebuf, 0, sizeof(filetablebuf));
 				
-// 		}
-// 	}
-// }
+				pthread_mutex_lock(filetable_mutex);
+				currNode = filetable->head; 
+				while (currNode != NULL){
+					memset(nodebuf, 0, sizeof(nodebuf));
+					sprintf(nodebuf,"%s %d %ld ", currNode->name, currNode->size, currNode->timestamp);
+					strcat(filetablebuf, nodebuf);
+					currNode = currNode->pNext;
+				}
+				pthread_mutex_unlock(filetable_mutex);
+				send(webconn, filetablebuf, sizeof(filetablebuf), 0);
+			}	
+		}
+	}
+}
 
 
 // Thread that recieves messages from a specific peer and responds if needed

@@ -7,6 +7,8 @@
 
 #define CONNECTION_PORT 1234
 
+#define WEB_PORT 1237
+
 #define TEST 2
 
 #define TRACKERPORT 5008
@@ -26,5 +28,9 @@
 #define PROTOCOL_LEN 0
 #define RESERVED_LEN 8
 #define FILE_NAME_LEN 100 
+
+#define MD5_LEN 32
+
+#define FLAG_SAME "__FLAG_SAME__"
 
 #endif

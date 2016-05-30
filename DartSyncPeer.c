@@ -5,6 +5,7 @@
 #include <string.h> 
 #include <stdlib.h> 
 #include <stdio.h>
+#include <signal.h>
 #include <netdb.h> 
 #include <unistd.h>
 #include "common/constants.h"
@@ -31,14 +32,17 @@ int seghandler();
 int receiveTrackerState(int firstContact);
 int peer_compareFiletables(ptp_tracker_t segment, int firstContact);
 int listenToTracker();
+void peer_stop();
 
 int main(){
 
-	//Make filetable
+	//register a signal handler which is used to terminate the process
+	signal(SIGINT, peer_stop);
+
+	//Make filetable and print it
 	path = readConfigFile("./config.ini");
 	filetable = initTable(path);
 	watchDirectory(path);
-
 	printTable(filetable);
 
 	//create mutex for filetable
@@ -47,7 +51,7 @@ int main(){
 
 	//Create thread to listen to peers asking for downloads
 	pthread_t peer2peer_thread;
-	pthread_create(&peer2peer_thread, NULL, start_listening, (void *) 0);
+	pthread_create(&peer2peer_thread, NULL, start_listening, (void *) path);
 
 	//Establish connection to tracker
 	trackerconn = peer_connToTracker();
@@ -56,15 +60,15 @@ int main(){
 		sendFileUpdate(filetable, filetable_mutex, trackerconn);
 	}
 
+	//Start thread to let tracker know it is still alive
 	pthread_t heartbeat_thread;
 	pthread_create(&heartbeat_thread, NULL, sendheartbeat, (void *) 0);
 
-	// Create struct and place all information to be passed to filemonitor thread
+	// Create filemonitor thread and its args
 	filemonitorArg_st *args = malloc(sizeof(filemonitorArg_st));
 	args->filetable = filetable;
 	args->filetable_mutex = filetable_mutex;
 	args->trackerconn = trackerconn;
-
 	pthread_t fileMonitor_thread;
 	pthread_create(&fileMonitor_thread, NULL, monitor, (void *) args);
 
@@ -108,9 +112,13 @@ int peer_connToTracker(){
 
 }
 
-int peer_disconnectFromTracker(int trackerconn){
+void peer_stop(){
+	printf("Received SIGINT\n");
 	close(trackerconn);
-	return 1; 
+	trackerconn = -1; 
+	destroyTable(filetable);
+	free(filetable_mutex);
+	exit(0); 
 }
 
 void *sendheartbeat(void *arg){
@@ -142,6 +150,7 @@ int receiveTrackerState(int firstContact){
 
 	if (peer_recvseg(trackerconn, &segment) < 0){
 		printf("Receive failed\n");
+		trackerconn = -100; 
 		return -1;
 	}
 	printf("Received global file state\n");
@@ -187,7 +196,8 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 
 					//block listening
 					blockFileWriteListening(); 
-					download(segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
+					printf("filename to download: %s\n", segment.sendNode[i].name);
+					download(path, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
 					unblockFileWriteListening();
 					break; 
 				}
@@ -202,7 +212,6 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 			}
 			else{
 				deleteNode(filetable, currNode->name);
-				sprintf(filepath, "%s/%s", path, currNode->name);
 				blockFileDeleteListening();
 				remove(filepath);									//should work for directories unless we need to recursively remove files from it
 				unblockFileDeleteListening();
@@ -220,7 +229,6 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 
 			//Add node to the mutex corresponding to the file
 			addNewNode(filetable, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, NULL);
-			sprintf(filepath, "%s/%s", path, segment.sendNode[i].name);
 
 			if (segment.sendNode[i].size == -1){
 				if (mkdir(filepath, 0777) == -1){
@@ -229,7 +237,8 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 			}
 			else{
 				blockFileAddListening();
-				download(segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
+				printf("Filename to download: %s\n", segment.sendNode[i].name); 
+				download(path, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
 				unblockFileAddListening();
 			}
 		}

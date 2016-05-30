@@ -5,6 +5,7 @@
 
 typedef struct p2p_request_pkg{
 	char filename[FILE_NAME_LENGTH];
+	char md5key[MD5_LEN+1];
 	unsigned long int timestamp;
 	int partition;
 } p2p_request_pkg_t;
@@ -18,6 +19,7 @@ typedef struct p2p_request_arg{
 	char ip[IP_LEN];
 	char rootpath[FILE_NAME_LENGTH];
 	char filename[FILE_NAME_LENGTH];
+	char md5key[MD5_LEN+1];
 	unsigned long int timestamp;
 	int partition;
 	int* exist;
@@ -33,9 +35,8 @@ typedef struct send_thread_arg
 
 int download(char* rootpath, char* filename, int size, unsigned long int timestamp, char nodes[][IP_LEN], int numOfNodes);
 
-void* start_listening(char* rootpath);
 
-//////////////////////////////////
+void* start_listening(void* arg);
 
 void* singleDownload(void* args);
 
