@@ -230,10 +230,35 @@ void* singleDownload(void* args){
 			perror("singleDownload: download_recvpkt failed 2.");
 	    	break;
 	    }
-
 		//store in a file
 		if(strcmp(recv_pkg.data, FLAG_SAME) == 0){
-			//TODO:
+			printf("part %d just the same!\n", request_args->partition);
+			char filename[FILE_NAME_LENGTH];
+			memset(filename, 0, FILE_NAME_LENGTH);
+			sprintf(filename, "%s_%d_%d", request_args->filename, request_args->timestamp, request_args->partition);
+			
+			FILE* fp;
+			if((fp = fopen(request_args->filename,"r"))!=NULL){
+			 	fseek(fp,0,SEEK_END);
+			 	int size;
+			 	int total = (ftell(fp)-1)/BLOCK_SIZE+1;
+			 	if(total-1 == request_args->partition){
+			 		size = (ftell(fp)-1)%BLOCK_SIZE+1;
+			 	}else{
+			 		size = BLOCK_SIZE;
+				}
+				char data[size];
+				fseek(fp, request_args->partition * BLOCK_SIZE, SEEK_SET);
+				fread(data, sizeof(char), size, fp);
+				FILE* f = fopen(filename,"w");
+				fwrite(data,size,1,f);
+				fclose(f);
+				code = 1;
+				fclose(fp);
+			}else{
+				printf("Error, can't open local file!\n");
+			}
+			
 		}else{
 			char filename[FILE_NAME_LENGTH];
 			memset(filename, 0, FILE_NAME_LENGTH);
@@ -447,12 +472,9 @@ int start_listening(int port){
 	        break;
 	    }
 	    printf("Connection accepted\n");
-		printf("0\n");
 	    p2p_request_pkg_t* req_pkt = malloc(sizeof(p2p_request_pkg_t));
 	    memset(req_pkt, 0, sizeof(p2p_request_pkg_t));
-		printf("1\n");
 	    upload_recvreqpkt(req_pkt, connfd);
-	    printf("2\n");
 		printf("from ip:%s | port:%d | partition:%d\n", inet_ntoa(cli_addr.sin_addr), cli_addr.sin_port, req_pkt->partition);
 
 		send_thread_arg_t* send_arg = malloc(sizeof(send_thread_arg_t));
@@ -557,7 +579,13 @@ int upload(int sockfd, p2p_request_pkg_t* pkg){
 		for(int k = 0; k < 16; ++k){
 			sprintf(&md5key[k*2], "%02x", (unsigned int)c[k]);
 		}
-		printf("MD5: my-%s | their-%s\n",md5key, pkg->md5key);
+		//printf("MD5: my-%s | their-%s\n",md5key, pkg->md5key);
+		if(strcmp(md5key, pkg->md5key) == 0){
+			strcpy(package.data, FLAG_SAME);
+		}else{
+			strcpy(package.data, data);
+			printf("DATA SENT:\n %s\n", package.data);
+		}
 		package.size = size;
         printf("file %s #%d sended\n", pkg->filename, pkg->partition);
 	}

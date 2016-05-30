@@ -17,7 +17,7 @@ int main(int argc , char *argv[])
 	unsigned long int timestamp = 1111111;
 	char nodes[][IP_LEN] = {"129.170.212.87"};
 
-	download(fileName, 6488665/*size*/, timestamp, nodes, 1);
+	download(fileName, size, timestamp, nodes, 1);
 
     return 0;
 }
