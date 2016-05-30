@@ -195,10 +195,10 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 					modifyNode(filetable, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, NULL);
 
 					//block listening
-					blockFileWriteListening(); 
+					blockFileListening(); 
 					printf("filename to download: %s\n", segment.sendNode[i].name);
 					download(path, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
-					unblockFileWriteListening();
+					unblockFileListening();
 					break; 
 				}
 			}
@@ -212,9 +212,9 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 			}
 			else{
 				deleteNode(filetable, currNode->name);
-				blockFileDeleteListening();
+				blockFileListening();
 				remove(filepath);									//should work for directories unless we need to recursively remove files from it
-				unblockFileDeleteListening();
+				unblockFileListening();
 			}
 		}
 
@@ -236,10 +236,10 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 				}
 			}
 			else{
-				blockFileAddListening();
+				blockFileListening();
 				printf("Filename to download: %s\n", segment.sendNode[i].name); 
 				download(path, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
-				unblockFileAddListening();
+				unblockFileListening();
 			}
 		}
 	}
