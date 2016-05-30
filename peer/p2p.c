@@ -83,23 +83,16 @@ int download(char* rootpath, char* filename, int size, unsigned long int timesta
 		stat(realFileName, &st);
 		int local_total = (st.st_size-1)/BLOCK_SIZE+1;
 
-		int size;
+		//int size;
 		int partition_count = 0;
 		if((fp = fopen(realFileName,"r"))!=NULL){
 			fseek(fp,0,SEEK_END);
 			for(int t=0; t < local_total; t++){
-				int local_total = (ftell(fp)-1)/BLOCK_SIZE+1;
-				if(local_total-1 == partition_count){
-					size = (ftell(fp)-1)%BLOCK_SIZE+1;
-				}else{
-					size = BLOCK_SIZE;
-				}
-				partition_count ++;
 			
 				unsigned char c[MD5_LEN+1];
 				char data[size];
 				fseek(fp, t * BLOCK_SIZE, SEEK_SET);
-				fread(data, sizeof(char), size, fp);
+				int size = fread(data, sizeof(char), /*size*/BLOCK_SIZE, fp);
 
 				MD5_CTX mdContext;
 
@@ -174,7 +167,6 @@ int download(char* rootpath, char* filename, int size, unsigned long int timesta
 		char tmpFile[FILE_NAME_LENGTH];
 		memset(tmpFile, 0, FILE_NAME_LENGTH);
 		sprintf(tmpFile, "%s_%lu_%d.dartsync", realFileName, timestamp, i);
-
 		FILE* tmp = fopen(tmpFile,"rb");
 		memset(buffer, 0, BLOCK_SIZE);
 		if((singleSize = fread(buffer,1,BLOCK_SIZE,tmp)) > 0){
@@ -257,7 +249,7 @@ void* singleDownload(void* args){
 			printf("part %d just the same!\n", request_args->partition);
 			char filename[FILE_NAME_LENGTH];
 			memset(filename, 0, FILE_NAME_LENGTH);
-			sprintf(filename, "%s_%d_%d", realFileName, request_args->timestamp, request_args->partition);
+			sprintf(filename, "%s_%lu_%d.dartsync", realFileName, request_args->timestamp, request_args->partition);
 			FILE* fp;
 			if((fp = fopen(realFileName,"r"))!=NULL){
 			 	fseek(fp,0,SEEK_END);
@@ -280,11 +272,11 @@ void* singleDownload(void* args){
 				break;
 			}
 		}else{
-			
 			char filename[FILE_NAME_LENGTH];
 			memset(filename, 0, FILE_NAME_LENGTH);
 			sprintf(filename, "%s_%lu_%d.dartsync", realFileName, request_args->timestamp, request_args->partition);
 			FILE* f = fopen(filename,"wb");
+			printf("-------------------- partition : %d -----------------------\n %s\n --------------------------------------\n", request_args->partition, recv_pkg.data);
 			fwrite(recv_pkg.data,recv_pkg.size,1,f);
 			fclose(f);
 			free(realFileName);
@@ -496,7 +488,7 @@ int upload(int sockfd, p2p_request_pkg_t* pkg){
 	if((fp = fopen(pkg->filename,"rb"))!=NULL){
 
 		fseek(fp, pkg->partition * BLOCK_SIZE, SEEK_SET);
-		int size = fread(package.data, 1, BLOCK_SIZE, fp);
+		int size = fread(package.data, sizeof(char), BLOCK_SIZE, fp);
 		fclose(fp);
 
 		unsigned char c[MD5_LEN+1];
@@ -511,13 +503,14 @@ int upload(int sockfd, p2p_request_pkg_t* pkg){
 		for(int k = 0; k < 16; ++k){
 			sprintf(&md5key[k*2], "%02x", (unsigned int)c[k]);
 		}
-		// printf("MD5: my-%s | their-%s\n",md5key, pkg->md5key);
+		
 		if(strcmp(md5key, pkg->md5key) == 0){
 			memset(package.data, 0, BLOCK_SIZE);
 			strcpy(package.data, FLAG_SAME);
 			package.size = strlen(FLAG_SAME);
 		}else{
 			package.size = size;
+			printf("partition %d | MD5: my-%s | their-%s\n",pkg->partition, md5key, pkg->md5key);
 			printf("upload: diff %d\n", pkg->partition);
 		}
 		
