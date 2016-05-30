@@ -16,9 +16,10 @@ pthread_mutex_t* exist_mutex;
 pthread_mutex_t* running_mutex;
 pthread_mutex_t* upload_running_mutex;
 
-int download(char* filename, int size, unsigned long int timestamp, char nodes[][IP_LEN], int numOfNodes){
+int download(char* rootpath, char* filename, int size, unsigned long int timestamp, char nodes[][IP_LEN], int numOfNodes){
+	char* realFileName = getPath(rootpath, filename);
 	int total = (size-1)/BLOCK_SIZE+1;
-	printf("download: size %d, split into %d parts\n", size, total);
+	printf("download: %s of size %d, split into %d parts\n", filename, size, total);
 	int curNode = 0;
 
 	int* exist = malloc(sizeof(int) * total);
@@ -41,18 +42,19 @@ int download(char* filename, int size, unsigned long int timestamp, char nodes[]
 	}
 	char* path = malloc(dirLen);
 	memcpy(path, filename, dirLen);
-	printf("download: dirLen : %d\n", dirLen);
+	char* realPath = getPath(rootpath, path);
 	if(dirLen > 0){
-		printf("download: the directory of %s: %s\n", filename, path);
+		printf("download: the directory of %s: %s\n", filename, realPath);
 	}
-	mkdir(path, S_IRWXU);
+	mkdir(realPath, S_IRWXU);
+	free(realPath);
 	free(path);
 
 	//resume download
 	char tmpFileName[FILE_NAME_LENGTH];
 	for(int i = 0; i < total; i++){
 		memset(tmpFileName, 0, FILE_NAME_LENGTH);
-		sprintf(tmpFileName, "%s_%lu_%d", filename, timestamp, i);
+		sprintf(tmpFileName, "%s_%lu_%d", realFileName, timestamp, i);
 		if( access( tmpFileName, F_OK ) != -1 ) {
 			FILE* fp = fopen(tmpFileName,"r");
 			fseek(fp, 0L, SEEK_END);
@@ -92,6 +94,7 @@ int download(char* filename, int size, unsigned long int timestamp, char nodes[]
 			p2p_request_arg_t* request_args = malloc(sizeof(p2p_request_arg_t)) ;
 			memset(request_args, 0, sizeof(p2p_request_arg_t));
 			memcpy(request_args->ip, nodes[curNode], IP_LEN);
+			memcpy(request_args->rootpath, rootpath, FILE_NAME_LENGTH);
 			memcpy(request_args->filename, filename, FILE_NAME_LENGTH);
 			request_args->timestamp = timestamp;
 			request_args->partition = i;
@@ -113,7 +116,7 @@ int download(char* filename, int size, unsigned long int timestamp, char nodes[]
 	//combine temporary files
 	char recvFile[FILE_NAME_LENGTH];
 	memset(recvFile, 0, FILE_NAME_LENGTH);
-	sprintf(recvFile, "%s_recv", filename);
+	sprintf(recvFile, "%s_recv", realFileName);
 	FILE* recv = fopen(recvFile,"wb");
 
 	char *buffer = (char*)malloc(BLOCK_SIZE);
@@ -121,7 +124,7 @@ int download(char* filename, int size, unsigned long int timestamp, char nodes[]
 	for(int i = 0; i < total; i++){
 		char tmpFile[FILE_NAME_LENGTH];
 		memset(tmpFile, 0, FILE_NAME_LENGTH);
-		sprintf(tmpFile, "%s_%lu_%d", filename, timestamp, i);
+		sprintf(tmpFile, "%s_%lu_%d", realFileName, timestamp, i);
 
 		FILE* tmp = fopen(tmpFile,"rb");
 		memset(buffer, 0, BLOCK_SIZE);
@@ -133,6 +136,7 @@ int download(char* filename, int size, unsigned long int timestamp, char nodes[]
 	}
 	free(buffer);
 	fclose(recv);
+	printf("download: %s successfully\n", realFileName);
 	return 1;
 }
 
@@ -172,14 +176,14 @@ void* singleDownload(void* args){
 		}
 		int port = 0;
 		//get the new port and connect to the upload thread
-		printf("singleDownload: getting port...\n");
+		// printf("singleDownload: getting port...\n");
 		if(recv(conn,&port,sizeof(int),0) < 0){
 			perror("singleDownload: recv failed.");
 			break;
 		}
 		close(conn);
 		servaddr.sin_port = htons(port);
-		printf("singleDownload: going to connect port %d\n", servaddr.sin_port);
+		// printf("singleDownload: going to connect port %d\n", servaddr.sin_port);
 		conn = socket(AF_INET,SOCK_STREAM,0);
 		if(conn < 0) {
 	    	perror("singleDownload: create socket failed 2.");
@@ -197,12 +201,14 @@ void* singleDownload(void* args){
 	    }
 
 		//store in a file
+		char* realFileName = getPath(request_args->rootpath, request_args->filename);
 		char filename[FILE_NAME_LENGTH];
 		memset(filename, 0, FILE_NAME_LENGTH);
-		sprintf(filename, "%s_%lu_%d", request_args->filename, request_args->timestamp, request_args->partition);
+		sprintf(filename, "%s_%lu_%d", realFileName, request_args->timestamp, request_args->partition);
 		FILE* f = fopen(filename,"wb");
 		fwrite(recv_pkg.data,recv_pkg.size,1,f);
 		fclose(f);
+		free(realFileName);
 		*code = 1;
 		break;
 	}
@@ -280,7 +286,7 @@ int upload_recvreqpkt(p2p_request_pkg_t* pkt, int conn)
 	return 1;
 }
 
-void* start_listening(void *arg){
+void* start_listening(char* rootpath){
 
 	int listenfd, connfd;
 	struct sockaddr_in cli_addr, serv_addr;
@@ -324,8 +330,11 @@ void* start_listening(void *arg){
 	    memset(req_pkt, 0, sizeof(p2p_request_pkg_t));
 
 	    upload_recvreqpkt(req_pkt, connfd);
-	    	
-		printf("from ip:%s | port:%d | partition:%d\n", inet_ntoa(cli_addr.sin_addr), cli_addr.sin_port, req_pkt->partition);
+
+	    printf("from ip:%s | port:%d | file: %s | partition:%d\n", inet_ntoa(cli_addr.sin_addr), cli_addr.sin_port, req_pkt->filename, req_pkt->partition);
+
+	    char* realFileName = getPath(rootpath, req_pkt->filename);
+	    memcpy(req_pkt->filename, realFileName, FILE_NAME_LENGTH);
 
 		send_thread_arg_t* send_arg = malloc(sizeof(send_thread_arg_t));
 		memset(send_arg, 0, sizeof(send_thread_arg_t));
@@ -412,4 +421,13 @@ int upload(int sockfd, p2p_request_pkg_t* pkg){
 	}
 	upload_sendpkt(&package, sockfd);
 	return 1;
+}
+
+char* getPath(char* rootpath, char* filename){
+	char* result = malloc(FILE_NAME_LENGTH);
+	memset(result, 0 , strlen(rootpath)+strlen(filename)+1);
+	strcat(result, rootpath);
+	strcat(result, "/");
+	strcat(result, filename);
+	return result;
 }

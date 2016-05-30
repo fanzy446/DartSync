@@ -49,7 +49,7 @@ int main(){
 
 	//Create thread to listen to peers asking for downloads
 	pthread_t peer2peer_thread;
-	pthread_create(&peer2peer_thread, NULL, start_listening, (void *) 0);
+	pthread_create(&peer2peer_thread, NULL, start_listening, (void *) path);
 
 	//Establish connection to tracker
 	trackerconn = peer_connToTracker();
