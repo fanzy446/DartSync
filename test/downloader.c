@@ -7,18 +7,19 @@
 
 int main(int argc , char *argv[])
 {
- 	char* fileName = "test_large.txt";
+ 	char* fileName = "test/test_large.txt";
 
-	FILE *f = fopen(fileName,"rb");
+	FILE *f = fopen("test_large.txt","rb");
 	fseek(f,0,SEEK_END);
 	int size = ftell(f);
 	fclose(f);
 
 	unsigned long int timestamp = 1111111;
-	char nodes[][IP_LEN] = {"129.170.212.87"};
+	char nodes[][IP_LEN] = {"127.0.0.1"};
 	// char nodes[][IP_LEN] = {"129.170.212.87"};
 
-	download(fileName, size, timestamp, nodes, 1);
+	char* root = "droot";
+	download(root, fileName, size, timestamp, nodes, 1);
 
     return 0;
 }

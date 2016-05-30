@@ -2,5 +2,6 @@
 #include "../common/constants.h"
 
 int main(int argc , char *argv[]){
-	start_listening((void *) 0);
+	char* root = "root";
+	start_listening(root);
 }

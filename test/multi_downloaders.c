@@ -35,9 +35,10 @@ int main(int argc , char *argv[])
 	unsigned long int timestamp = 1111111;
 	char nodes[][IP_LEN] = {"129.170.214.115", "129.170.213.62", "129.170.214.100"};
 
-	download(large_fileName, size1, timestamp, nodes, 3);
-	download(short_fileName1, size2, timestamp, nodes, 3);
-	download(short_fileName2, size3, timestamp, nodes, 3);
+	char* root = "droot";
+	download(root, large_fileName, size1, timestamp, nodes, 3);
+	download(root, short_fileName1, size2, timestamp, nodes, 3);
+	download(root, short_fileName2, size3, timestamp, nodes, 3);
 
     return 0;
 }
