@@ -13,33 +13,7 @@ FileTable* createTable(){
 FileTable* initTable(char* directory){
 	//printf("initTable\n" );
 	FileTable* table = createTable();
-	char fullpath[1024];
-	DIR* d;
-	struct dirent *dir;
-	struct stat st;
-
-	d = opendir(directory);
-	if (d == NULL){
-		printf("%s\n", strerror(errno));
-	}
-
-	if (d){
-		while ((dir = readdir(d)) != NULL){
-			sprintf(fullpath, "%s/%s", directory, dir->d_name);
-			stat(fullpath, &st);
-			if (!strcmp(dir->d_name, ".") || !strcmp(dir->d_name, "..")){
-				continue;
-			}
-      		// CURRENTLY ONLY SUPPORT REGULAR FILES
-			if (S_ISREG(st.st_mode)){
-				//printf("%s\n", fullpath);
-				//char* fname = (char*) malloc(sizeof(char)*strlen(dir->d_name));
-				//strcpy(fname, dir->d_name);
-				addNewNode(table, dir->d_name, (int) st.st_size, (unsigned long) st.st_ctime, NULL);
-			}
-		}
-	}
-	closedir(d);
+	listDir(table, directory);
 	return table;
 }
 
@@ -187,6 +161,51 @@ int peerHasFile(Node *fileRecord, char *ip){
 		fileRecord->peernum++;
 	}
 	return 1; 	
+}
+
+/*
+* Recursively scans all files/dirs under the directory
+* , and add them as nodes into a table
+*/
+void listDir(FileTable* table, const char* dirname){
+	DIR* d;
+	char fullpath[1024];
+	struct dirent *dir;
+	struct stat st;
+
+	d = opendir(dirname);
+	if (d == NULL){
+		printf("%s\n", strerror(errno));
+	}
+
+	if (d){
+		while((dir = readdir(d)) != NULL){
+			memset(fullpath, '\0', 1024);
+			sprintf(fullpath, "%s/%s", dirname, dir->d_name);
+			if (stat(fullpath, &st) < 0){
+				printf("%s\n", "problem in stat");
+			}
+
+			// CASE: WE DON'T NEED SYMBOLIC LINK
+			if (dir->d_name[0] == '.' || !strcmp(dir->d_name, ".") || !strcmp(dir->d_name, "..")){
+				continue;
+			}
+
+			// CASE: REGULAR FILES
+			if (S_ISREG(st.st_mode)){
+				//printf("File: %s\n", fullpath);
+				addNewNode(table, fullpath, (int) st.st_size, (unsigned long) st.st_ctime, getMyIP());
+			}
+
+			// CASE: DIRECTORIES
+			if (S_ISDIR(st.st_mode)){
+				//printf("Dir: %s\n", fullpath);
+				addNewNode(table, fullpath, -1, (unsigned long) st.st_ctime, getMyIP());
+				listDir(table, fullpath);
+			}
+		}
+	}
+	closedir(d);
 }
 
 

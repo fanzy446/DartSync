@@ -46,51 +46,6 @@ void* watchDirectory(char* directory){
 }
 
 /*
-* Recursively scans all files/dirs under the directory
-* , and add them as nodes into a table
-*/
-void listDir(FileTable* table, const char* dirname){
-	DIR* d;
-	char fullpath[1024];
-	struct dirent *dir;
-	struct stat st;
-
-	d = opendir(dirname);
-	if (d == NULL){
-		printf("%s\n", strerror(errno));
-	}
-
-	if (d){
-		while((dir = readdir(d)) != NULL){
-			memset(fullpath, '\0', 1024);
-			sprintf(fullpath, "%s/%s", dirname, dir->d_name);
-			if (stat(fullpath, &st) < 0){
-				printf("%s\n", "problem in stat");
-			}
-
-			// CASE: WE DON'T NEED SYMBOLIC LINK
-			if (dir->d_name[0] == '.' || !strcmp(dir->d_name, ".") || !strcmp(dir->d_name, "..")){
-				continue;
-			}
-
-			// CASE: REGULAR FILES
-			if (S_ISREG(st.st_mode)){
-				//printf("File: %s\n", fullpath);
-				addNewNode(table, fullpath, (int) st.st_size, (unsigned long) st.st_ctime, getMyIP());
-			}
-
-			// CASE: DIRECTORIES
-			if (S_ISDIR(st.st_mode)){
-				//printf("Dir: %s\n", fullpath);
-				addNewNode(table, fullpath, -1, (unsigned long) st.st_ctime, getMyIP());
-				listDir(table, fullpath);
-			}
-		}
-	}
-	closedir(d);
-}
-
-/*
 * Get a FileInfo by giving the filename of a file
 * INPUT:
 * 	filename: is actuallly a path from root directory where we are monitoring 
@@ -218,7 +173,6 @@ void* monitor(void* arg){
 		nanosleep(&t, NULL);
 	}
 }
-
 
 int sendFileUpdate(FileTable *filetable, pthread_mutex_t *filetable_mutex, int trackerconn){
   ptp_peer_t fileUpdate;

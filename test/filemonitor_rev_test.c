@@ -1,12 +1,11 @@
-#include "../peer/filemonitor_rev.h"
+#include "../peer/filemonitor.h"
 
 
 // TEST FUNCTION
 int main( ){
   char* path = readConfigFile("./config.ini");
-  FileTable *filetable = createTable();// initTable(path);
+  FileTable *filetable = initTable(path);
   watchDirectory(path);
-  listDir(filetable, path);
   printTable(filetable);
 
   pthread_mutex_t *filetable_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));

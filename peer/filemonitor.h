@@ -37,7 +37,6 @@ typedef struct filemonitorArgs{
 */
 char* readConfigFile(char* filename);
 void* watchDirectory(char* directory);
-void listDir(FileTable* table, const char* dirname);
 FileInfo* getFileInfo(char* filename);
 void* monitor(void* arg);
 int sendFileUpdate(FileTable* filetable, pthread_mutex_t *filetable_mutex, int trackerconn);
