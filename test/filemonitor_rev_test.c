@@ -1,11 +1,5 @@
 #include "../peer/filemonitor_rev.h"
 
-/*
-void myFileAdded(char* filename){
-	printf("Here, %s", filename);
-}
-void(*fileAdded)(char*) = myFileAdded;
-*/
 
 // TEST FUNCTION
 int main( ){
@@ -14,9 +8,6 @@ int main( ){
   watchDirectory(path);
   listDir(filetable, path);
   printTable(filetable);
-
-  //destroyTable(filetable); // debug
-  //return 0; // debug
 
   pthread_mutex_t *filetable_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
   pthread_mutex_init(filetable_mutex, NULL);
