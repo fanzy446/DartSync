@@ -280,7 +280,8 @@ int upload_recvreqpkt(p2p_request_pkg_t* pkt, int conn)
 	return 1;
 }
 
-int start_listening(int port){
+void* start_listening(void *arg){
+
 	int listenfd, connfd;
 	struct sockaddr_in cli_addr, serv_addr;
 	socklen_t clilen;
@@ -293,7 +294,7 @@ int start_listening(int port){
 
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	serv_addr.sin_port = htons(port);
+	serv_addr.sin_port = htons(CONNECTION_PORT);
 	bind(listenfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
 	listen (listenfd, MAX_LISTEN_NUM);
 	printf("start listening!\n");

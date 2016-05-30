@@ -146,8 +146,6 @@ Node* createNode(char* filename, int size, unsigned long timestamp){
 	strcpy(node->name, filename);
 	node->timestamp = timestamp;
 	node->pNext = NULL;
-	node->peernum = 1;
-	strcpy(node->peerip[0], getMyIP());
 	return node;
 }
 
