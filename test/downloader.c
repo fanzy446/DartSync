@@ -4,6 +4,7 @@
 #include <string.h>    //strlen
 #include <sys/socket.h>    //socket
 #include <arpa/inet.h> //inet_addr
+#include <sys/stat.h>
 
 int main(int argc , char *argv[])
 {
@@ -14,7 +15,10 @@ int main(int argc , char *argv[])
 	int size = ftell(f);
 	fclose(f);
 
-	unsigned long int timestamp = 1111111;
+	struct stat attrib;
+	stat("test_large.txt", &attrib);
+
+	unsigned long int timestamp = attrib.st_ctime;
 	char nodes[][IP_LEN] = {"127.0.0.1"};
 	//char nodes[][IP_LEN] = {"129.170.212.87"};
 
