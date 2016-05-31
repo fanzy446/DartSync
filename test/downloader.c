@@ -8,7 +8,7 @@
 
 int main(int argc , char *argv[])
 {
-	char* fileName = "test/test_large.txt";
+	char* fileName = "test/dir/test_large.txt";
 
 	FILE *f = fopen("test_large.txt","rb");
 	fseek(f,0,SEEK_END);
