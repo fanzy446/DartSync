@@ -13,7 +13,7 @@ FileTable* createTable(){
 FileTable* initTable(char* directory){
 	//printf("initTable\n" );
 	FileTable* table = createTable();
-	listDir(table, directory);
+	listDir(table, directory, NULL);
 	return table;
 }
 
@@ -167,11 +167,21 @@ int peerHasFile(Node *fileRecord, char *ip){
 * Recursively scans all files/dirs under the directory
 * , and add them as nodes into a table
 */
-void listDir(FileTable* table, const char* dirname){
+void listDir(FileTable* table, const char* basedir, char *location){
 	DIR* d;
 	char fullpath[1024];
+	char dirname[1024];
+	char relpath[1024];
 	struct dirent *dir;
 	struct stat st;
+
+	if (location != NULL){
+		sprintf(dirname, "%s/%s", basedir, location);
+	}
+	else{
+		memcpy(dirname, basedir, sizeof(dirname));
+	}
+
 
 	d = opendir(dirname);
 	if (d == NULL){
@@ -181,7 +191,16 @@ void listDir(FileTable* table, const char* dirname){
 	if (d){
 		while((dir = readdir(d)) != NULL){
 			memset(fullpath, '\0', 1024);
-			sprintf(fullpath, "%s/%s", dirname, dir->d_name);
+			memset(relpath, '\0', 1024);
+
+			if (location != NULL){
+				sprintf(relpath, "%s/%s", location, dir->d_name);
+			}
+			else{
+				memcpy(relpath, dir->d_name, sizeof(relpath));
+			}
+			sprintf(fullpath, "%s/%s", basedir, relpath);
+
 			if (stat(fullpath, &st) < 0){
 				printf("%s\n", "problem in stat");
 			}
@@ -194,14 +213,14 @@ void listDir(FileTable* table, const char* dirname){
 			// CASE: REGULAR FILES
 			if (S_ISREG(st.st_mode)){
 				//printf("File: %s\n", fullpath);
-				addNewNode(table, dir->d_name, (int) st.st_size, (unsigned long) st.st_ctime, getMyIP());
+				addNewNode(table, relpath, (int) st.st_size, (unsigned long) st.st_mtime, getMyIP());
 			}
 
 			// CASE: DIRECTORIES
 			if (S_ISDIR(st.st_mode)){
 				//printf("Dir: %s\n", fullpath);
-				addNewNode(table, dir->d_name, -1, (unsigned long) st.st_ctime, getMyIP());
-				listDir(table, fullpath);
+				addNewNode(table, relpath, -1, (unsigned long) st.st_mtime, getMyIP());
+				listDir(table, basedir, relpath);
 			}
 		}
 	}

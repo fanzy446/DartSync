@@ -97,7 +97,7 @@ void* monitor(void* arg){
 		pthread_mutex_lock(&lock);
 		// if (listening_enabled){
 			newtable = createTable();
-			listDir(newtable, dirPath);
+			listDir(newtable, dirPath, NULL);
 			
 			// NOW COMPARE TWO TABLES
 			masterNodePtr = table->head;
