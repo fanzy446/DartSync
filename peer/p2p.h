@@ -2,6 +2,16 @@
 #define P2P_H
 
 #include "../common/constants.h"
+#include <string.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <pthread.h>
+#include <arpa/inet.h>
+#include <openssl/md5.h>
+#include <sys/stat.h>
+#include <time.h>
+#include <utime.h>
 
 typedef struct p2p_request_pkg{
 	char filename[FILE_NAME_LENGTH];

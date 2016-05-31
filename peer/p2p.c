@@ -1,14 +1,4 @@
 #include "p2p.h"
-#include <string.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <pthread.h>
-#include <arpa/inet.h>
-#include <openssl/md5.h>
-#include <sys/stat.h>
-#include <time.h>
-#include <utime.h>
 
 #define MAX_DOWNLOAD_THREAD 300
 #define MAX_UPLOAD_THREAD 300
@@ -34,7 +24,6 @@ int download(char* rootpath, char* filename, int size, unsigned long int timesta
 	pthread_mutex_init(exist_mutex,NULL);
 	running_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
 	pthread_mutex_init(running_mutex,NULL);
-
 
 	//create folder if necessary
 	int dirLen = 0;
