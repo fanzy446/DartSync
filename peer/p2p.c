@@ -43,12 +43,11 @@ int download(char* rootpath, char* filename, int size, unsigned long int timesta
 		dirLen = part-filename;
 		part = strchr(part+1, '/');
 	}
-	char* path = malloc(dirLen);
+	char* path = malloc(dirLen+1);
+	memset(path, 0, dirLen+1);
 	memcpy(path, filename, dirLen);
 	char* realPath = getPath(rootpath, path);
-	if(dirLen > 0){
-		printf("download: the directory of %s: %s\n", filename, realPath);
-	}
+	printf("download: the directory of %s: %s\n", filename, realPath);
 	mkdir(realPath, S_IRWXU);
 	free(realPath);
 	free(path);
