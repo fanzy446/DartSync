@@ -371,7 +371,6 @@ void* start_listening(void* arg){
 	serv_addr.sin_port = htons(CONNECTION_PORT);
 	bind(listenfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
 	listen (listenfd, MAX_LISTEN_NUM);
-	printf("start listening!\n");
 
 	int running = 0;
 	upload_running_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));

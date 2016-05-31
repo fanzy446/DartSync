@@ -91,11 +91,16 @@ int modifyNode(FileTable* table, char* filename, int size, unsigned long timesta
 *	SUPPORT FUNCTIONS
 */
 
+
 void printTable(FileTable* table){
-	printf("printTable shows all nodes in a table:\n");
+	printf("------------------------------------CURRENT TABLE--------------------------------------\n");
 	Node* curnode = table->head;
 	while(curnode != NULL){
-		printf("Name:%s, Size:%d, Timestamp:%ld IP:%s \n", curnode->name, curnode->size, curnode->timestamp, curnode->peerip[0]);
+		printf("Name:%-30s Size:%-10d Timestamp:%-15ld  ", curnode->name, curnode->size, curnode->timestamp);
+		for (int i = 0; i < curnode->peernum; i++){
+			printf("%s ", curnode->peerip[i]);
+		}
+		printf("\n");
 		curnode = curnode->pNext;
 	}
 }

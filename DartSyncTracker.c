@@ -234,6 +234,7 @@ void* tracker_Handshake(void *arg){
 				printf("received file update packet\n");
 				if (tracker_compareFiletables(segment) > 0){
 					broadcastUpdates();
+					printTable(filetable);
 				}
 				break; 
 		}
@@ -274,7 +275,6 @@ int tracker_compareFiletables(ptp_peer_t segment){
 				havePeerFile[i] = 1; 
 
 				if (currNode->timestamp == segment.sendNode[i].timestamp){
-					printf("timestamps are equal for %s\n", currNode->name);
 					peerHasFile(currNode, segment.peer_ip);						//Checks to make sure tracker has record of peer possessing this file
 					break;
 				}
