@@ -197,8 +197,18 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 
 					//block listening
 					blockFileListening(); 
-					printf("filename to download: %s\n", segment.sendNode[i].name);
-					download(path, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
+					if( segment.sendNode[i].size == -1){
+						char* dir = getPath(path, segment.sendNode[i].name);
+						struct utimbuf fakeTime;
+						fakeTime.actime = segment.sendNode[i].timestamp;
+						fakeTime.modtime = segment.sendNode[i].timestamp;
+						if(utime(dir, &fakeTime) < 0){
+							perror("change Directory meta data failed.");
+						}
+					}else{
+						printf("filename to download: %s\n", segment.sendNode[i].name);
+						download(path, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
+					}
 					unblockFileListening();
 					break; 
 				}
@@ -232,8 +242,13 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 			addNewNode(filetable, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, NULL);
 
 			if (segment.sendNode[i].size == -1){
-				if (mkdir(filepath, 0777) == -1){
-					printf("Directory creation failed\n");
+				char* dir = getPath(path, segment.sendNode[i].name);
+				mkdir(dir, S_IRWXU);
+				struct utimbuf fakeTime;
+				fakeTime.actime = segment.sendNode[i].timestamp;
+				fakeTime.modtime = segment.sendNode[i].timestamp;
+				if(utime(dir, &fakeTime) < 0){
+					perror("change Directory meta data failed.");
 				}
 			}
 			else{
