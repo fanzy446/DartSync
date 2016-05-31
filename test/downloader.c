@@ -8,7 +8,7 @@
 
 int main(int argc , char *argv[])
 {
- 	char* fileName = "test/test_large.txt";
+	char* fileName = "test/test_large.txt";
 
 	FILE *f = fopen("test_large.txt","rb");
 	fseek(f,0,SEEK_END);
@@ -18,7 +18,7 @@ int main(int argc , char *argv[])
 	struct stat attrib;
 	stat("test_large.txt", &attrib);
 
-	unsigned long int timestamp = attrib.st_ctime;
+	unsigned long int timestamp = attrib.st_mtime;
 	char nodes[][IP_LEN] = {"127.0.0.1"};
 	//char nodes[][IP_LEN] = {"129.170.212.87"};
 
