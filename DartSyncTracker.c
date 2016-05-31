@@ -191,12 +191,13 @@ void *connWeb(void *arg){
 				currNode = filetable->head; 
 				while (currNode != NULL){
 					memset(nodebuf, 0, sizeof(nodebuf));
-					sprintf(nodebuf,"%s %d %ld ", currNode->name, currNode->size, currNode->timestamp);
+					sprintf(nodebuf,"%s %d %ld|", currNode->name, currNode->size, currNode->timestamp);
 					strcat(filetablebuf, nodebuf);
 					currNode = currNode->pNext;
 				}
 				pthread_mutex_unlock(filetable_mutex);
 				send(webconn, filetablebuf, sizeof(filetablebuf), 0);
+				sleep(3);
 			}	
 		}
 	}

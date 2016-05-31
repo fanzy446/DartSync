@@ -73,9 +73,10 @@ int main(){
 	pthread_create(&fileMonitor_thread, NULL, monitor, (void *) args);
 
 
-	while (1){
+	while (trackerconn != -100){				// While the connection to tracker still exists
 		receiveTrackerState(0);
 	}
+	exit(0);
 }
 
 // This function connects a peer to the tracker

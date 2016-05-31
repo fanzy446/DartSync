@@ -94,7 +94,8 @@ void* monitor(void* arg){
 		hasChanged = 0;
 		
 		// CHECK UPDATE
-		if (listening_enabled){
+		pthread_mutex_lock(&lock);
+		// if (listening_enabled){
 			newtable = createTable();
 			listDir(newtable, dirPath);
 			
@@ -163,7 +164,9 @@ void* monitor(void* arg){
 				newNodePtr = newNodePtr->pNext;
 			}
 			destroyTable(newtable);
-		}
+		// }
+		pthread_mutex_unlock(&lock);
+		///// END OF HIS IF STATEMENT
 		
 		if (hasChanged){
 			// SEND TABLE TO TRACKER SINCE TABLE HAS MODIFIED
@@ -197,12 +200,12 @@ int sendFileUpdate(FileTable *filetable, pthread_mutex_t *filetable_mutex, int t
 
 void blockFileListening(){
 	pthread_mutex_lock(&lock);
-	listening_enabled = 0;
-	pthread_mutex_unlock(&lock);
+	// listening_enabled = 0;
+	// pthread_mutex_unlock(&lock);
 }
 void unblockFileListening(){
-	pthread_mutex_lock(&lock);
-	listening_enabled = 1;
+	// pthread_mutex_lock(&lock);
+	// listening_enabled = 1;
 	pthread_mutex_unlock(&lock);
 }
 
