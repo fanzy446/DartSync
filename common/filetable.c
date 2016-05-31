@@ -194,13 +194,13 @@ void listDir(FileTable* table, const char* dirname){
 			// CASE: REGULAR FILES
 			if (S_ISREG(st.st_mode)){
 				//printf("File: %s\n", fullpath);
-				addNewNode(table, fullpath, (int) st.st_size, (unsigned long) st.st_ctime, getMyIP());
+				addNewNode(table, dir->d_name, (int) st.st_size, (unsigned long) st.st_ctime, getMyIP());
 			}
 
 			// CASE: DIRECTORIES
 			if (S_ISDIR(st.st_mode)){
 				//printf("Dir: %s\n", fullpath);
-				addNewNode(table, fullpath, -1, (unsigned long) st.st_ctime, getMyIP());
+				addNewNode(table, dir->d_name, -1, (unsigned long) st.st_ctime, getMyIP());
 				listDir(table, fullpath);
 			}
 		}
