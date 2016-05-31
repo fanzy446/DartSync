@@ -7,6 +7,8 @@
 #include <arpa/inet.h>
 #include <openssl/md5.h>
 #include <sys/stat.h>
+#include <time.h>
+#include <utime.h>
 
 #define MAX_DOWNLOAD_THREAD 300
 #define MAX_UPLOAD_THREAD 300
@@ -20,7 +22,7 @@ pthread_mutex_t* upload_running_mutex;
 int download(char* rootpath, char* filename, int size, unsigned long int timestamp, char nodes[][IP_LEN], int numOfNodes){
 	char* realFileName = getPath(rootpath, filename);
 	int total = (size-1)/BLOCK_SIZE+1;
-	printf("download: %s of size %d, split into %d parts\n", filename, size, total);
+	printf("download: %s %lu of size %d, split into %d parts\n", filename, timestamp, size, total);
 	int curNode = 0;
 
 	int* exist = malloc(sizeof(int) * total);
@@ -103,7 +105,6 @@ int download(char* rootpath, char* filename, int size, unsigned long int timesta
 				for(int k = 0; k < 16; ++k){
 				    sprintf(&md5keys[t][k*2], "%02x", (unsigned int)c[k]);
 				}
-				printf("local part %d: %s\n", t, md5keys[t]);
 			}
 			fclose(fp);
 		}
@@ -178,6 +179,14 @@ int download(char* rootpath, char* filename, int size, unsigned long int timesta
 	free(buffer);
 	fclose(recv);
 	printf("download: %s successfully\n", realFileName);
+	//change time stamp in meta data
+	struct utimbuf fakeTime;
+	fakeTime.actime = timestamp;
+	fakeTime.modtime = timestamp;
+	if(utime(realFileName, &fakeTime) < 0){
+		perror("change file meta data failed.");
+		return -1;
+	}
 	return 1;
 }
 
@@ -276,7 +285,6 @@ void* singleDownload(void* args){
 			memset(filename, 0, FILE_NAME_LENGTH);
 			sprintf(filename, "%s_%lu_%d.dartsync", realFileName, request_args->timestamp, request_args->partition);
 			FILE* f = fopen(filename,"wb");
-			printf("-------------------- partition : %d -----------------------\n %s\n --------------------------------------\n", request_args->partition, recv_pkg.data);
 			fwrite(recv_pkg.data,recv_pkg.size,1,f);
 			fclose(f);
 			free(realFileName);
