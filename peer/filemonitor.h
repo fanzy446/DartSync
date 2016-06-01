@@ -18,7 +18,7 @@
 
 #define MAX_FILES 1024
 #define LEN_FILE_NAME 1024
-#define FILE_MONITOR_INTERVAL 100000000 // IN NANOSEC (10^-9)
+#define FILE_MONITOR_INTERVAL 1000000000 // IN NANOSEC (10^-9)
 
 typedef struct {
 	char filepath[LEN_FILE_NAME];

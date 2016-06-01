@@ -74,7 +74,7 @@ FileInfo* getFileInfo(char* filename){
 * Thread to monitor changes in files under a directory
 */
 void* monitor(void* arg){
-	printf("%s\n", "-in monitor");
+	// printf("%s\n", "-in monitor");
 	//extract information from arg
 	struct filemonitorArgs *args = (struct filemonitorArgs *) arg;
 	FileTable *table = args->filetable;
@@ -129,7 +129,8 @@ void* monitor(void* arg){
 					newNodePtr = newNodePtr->pNext;
 				}
 				if (! found){
-					printf("%s\n", "file deleted");
+
+					printf("%s deleted\n", masterNodePtr->name);
 					// FILE IS DELETED
 					tempPtr = masterNodePtr->pNext;
 					pthread_mutex_lock(filetable_mutex);
@@ -150,11 +151,12 @@ void* monitor(void* arg){
 				while (masterNodePtr != NULL){
 					if (strcmp(masterNodePtr->name, newNodePtr->name) == 0){
 						found = 1;
+						break;
 					}
 					masterNodePtr = masterNodePtr->pNext;
 				}
 				if (! found){
-					printf("%s\n", "file added");
+					printf("%s added\n", newNodePtr->name);
 					// FILE IS ADDED
 					pthread_mutex_lock(filetable_mutex);
 					addNewNode(table, newNodePtr->name, newNodePtr->size, newNodePtr->timestamp, newNodePtr->peerip[0]);
@@ -170,7 +172,7 @@ void* monitor(void* arg){
 		
 		if (hasChanged){
 			// SEND TABLE TO TRACKER SINCE TABLE HAS MODIFIED
-			printf("%s\n", "Table has modified: sendFileUpdate");
+			printf("Table has modified: sendFileUpdate\n");
 			sendFileUpdate(table, filetable_mutex, trackerconn);
 		}
 		nanosleep(&t, NULL);
@@ -185,9 +187,8 @@ int sendFileUpdate(FileTable *filetable, pthread_mutex_t *filetable_mutex, int t
   if (peer_sendseg(trackerconn, &fileUpdate) < 0){
     printf("Failed to send file update packet\n");
     return -1; 
-  }
-  else{
-    printf("File update packet sent\n");
+  }else{
+    // printf("File update packet sent\n");
     return 1; 
   }
 }

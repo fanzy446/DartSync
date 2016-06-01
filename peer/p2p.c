@@ -64,7 +64,6 @@ int download(char* rootpath, char* filename, int size, unsigned long int timesta
 	for(int m = 0; m < total; m++){
 		strcpy(md5keys[m], "NIL");
 	}
-	printf("total:%d\n", total);
 
 	if( access(realFileName, F_OK) != -1 ) {
 		FILE *fp;
@@ -80,15 +79,15 @@ int download(char* rootpath, char* filename, int size, unsigned long int timesta
 			for(int t=0; t < local_total; t++){
 			
 				unsigned char c[MD5_LEN+1];
-				char data[size];
-				fseek(fp, t * BLOCK_SIZE, SEEK_SET);
-				int size = fread(data, sizeof(char), /*size*/BLOCK_SIZE, fp);
+                char data[BLOCK_SIZE];
+                fseek(fp, t * BLOCK_SIZE, SEEK_SET);
+                int part_size = fread(data, sizeof(char), /*size*/BLOCK_SIZE, fp);
 
-				MD5_CTX mdContext;
+                MD5_CTX mdContext;
 
-				MD5_Init (&mdContext);
-				MD5_Update (&mdContext, data, size);
-    			MD5_Final (c,&mdContext);
+                MD5_Init (&mdContext);
+                MD5_Update (&mdContext, data, part_size);
+               	MD5_Final (c,&mdContext);
 
 				for(int k = 0; k < 16; ++k){
 				    sprintf(&md5keys[t][k*2], "%02x", (unsigned int)c[k]);
@@ -96,6 +95,8 @@ int download(char* rootpath, char* filename, int size, unsigned long int timesta
 			}
 			fclose(fp);
 		}
+
+
 	}
 
 	while(end != 1){
@@ -223,7 +224,7 @@ void* singleDownload(void* args){
 		}
 		close(conn);
 		servaddr.sin_port = htons(port);
-		printf("singleDownload: going to connect port %d\n", servaddr.sin_port);
+		// printf("singleDownload: going to connect port %d\n", servaddr.sin_port);
 		conn = socket(AF_INET,SOCK_STREAM,0);
 		if(conn < 0) {
 	    	perror("singleDownload: create socket failed 2.");
@@ -243,7 +244,7 @@ void* singleDownload(void* args){
 
 		//store in a file
 		if(strcmp(recv_pkg.data, FLAG_SAME) == 0){
-			printf("part %d just the same!\n", request_args->partition);
+			// printf("part %d just the same!\n", request_args->partition);
 			char filename[FILE_NAME_LENGTH];
 			memset(filename, 0, FILE_NAME_LENGTH);
 			sprintf(filename, "%s_%lu_%d.dartsync", realFileName, request_args->timestamp, request_args->partition);
@@ -391,7 +392,7 @@ void* start_listening(void* arg){
 	        perror("accept failed");
 	        break;
 	    }
-	    printf("Connection accepted\n");
+	    // printf("Connection accepted\n");
 
 	    p2p_request_pkg_t* req_pkt = malloc(sizeof(p2p_request_pkg_t));
 	    memset(req_pkt, 0, sizeof(p2p_request_pkg_t));
@@ -454,7 +455,7 @@ void* upload_thd(void* arg){
 		    perror("upload_thd: accept failed");
 		    break;
 		}
-		printf("upload_thd: accept successfully\n");
+		// printf("upload_thd: accept successfully\n");
 		upload(connfd, send_arg->req_info);
 		break;
 	}
@@ -505,8 +506,6 @@ int upload(int sockfd, p2p_request_pkg_t* pkg){
 			package.size = strlen(FLAG_SAME);
 		}else{
 			package.size = size;
-			printf("partition %d | MD5: my-%s | their-%s\n",pkg->partition, md5key, pkg->md5key);
-			printf("upload: diff %d\n", pkg->partition);
 		}
 		
         printf("file %s #%d sended\n", pkg->filename, pkg->partition);

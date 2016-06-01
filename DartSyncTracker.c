@@ -133,7 +133,9 @@ void* tracker_monitorAlive(void *arg){
 			}
 			peer = peer->next;
 		}
+		tracker_peertableprint(peertable);
 		pthread_mutex_unlock(peertable_mutex);
+		sleep(HEARTRATE/2);
 	}
 }
 
@@ -223,7 +225,7 @@ void* tracker_Handshake(void *arg){
 		//Handle depending on segment type
 		switch(segment.type){
 			case REGISTER: 
-				printf("recieved register\n");
+				// printf("recieved register\n");
 				tracker_acceptRegister(peer->sockfd);
 				tracker_keepAlive(peer); 				//Start tracking whether this peer is alive
 				break; 
@@ -231,10 +233,9 @@ void* tracker_Handshake(void *arg){
 				tracker_keepAlive(peer);
 				break; 
 			case FILE_UPDATE: 
-				printf("received file update packet\n");
+				// printf("received file update packet\n");
 				if (tracker_compareFiletables(segment) > 0){
 					broadcastUpdates();
-					printTable(filetable);
 				}
 				break; 
 		}
@@ -251,17 +252,17 @@ int tracker_acceptRegister(int peerconn){
 
 	if (tracker_sendseg(peerconn, &segment)){
 		return 1;
-		printf("Sent table");
 	}
 	else{
 		return -1; 
-		printf("failed to send table");
 	}
 }
 
 
 //needs to take in the segments file table or the segment itself
 int tracker_compareFiletables(ptp_peer_t segment){
+	printTable(filetable);
+
 	Node *currNode; 
 	int i, broadcast;
 	int havePeerFile[segment.file_table_size];
