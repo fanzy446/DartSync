@@ -64,10 +64,10 @@ int main(){
 	}
 
 	//Start thread to let tracker know it is still alive
-	int *arg = malloc(sizeof(*arg));
-	*arg = interval; 
+	int *iptr = malloc(sizeof(int));
+	*iptr = interval; 
 	pthread_t heartbeat_thread;
-	pthread_create(&heartbeat_thread, NULL, sendheartbeat, (void *) arg);
+	pthread_create(&heartbeat_thread, NULL, sendheartbeat, iptr);
 
 	// Create filemonitor thread and its args
 	filemonitorArg_st *args = malloc(sizeof(filemonitorArg_st));
@@ -144,6 +144,7 @@ void *sendheartbeat(void *arg){
 
 int sendregister(){
 	ptp_peer_t registerPacket;
+	memset(&registerPacket, 0, sizeof(ptp_peer_t));
 	registerPacket.type = REGISTER;
 	memcpy(registerPacket.peer_ip, getMyIP(), IP_LEN);
 	if (peer_sendseg(trackerconn, &registerPacket) < 0 ){
@@ -157,6 +158,7 @@ int sendregister(){
 
 int receiveTrackerState(int firstContact){
 	ptp_tracker_t segment; 
+	memset(&segment, 0, sizeof(ptp_tracker_t));
 
 	if (peer_recvseg(trackerconn, &segment) < 0){
 		printf("Receive failed\n");

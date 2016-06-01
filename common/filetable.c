@@ -232,7 +232,8 @@ void listDir(FileTable* table, const char* basedir, char *location){
 			}
 
 			// CASE: WE DON'T NEED SYMBOLIC LINK
-			if (dir->d_name[0] == '.' || !strcmp(dir->d_name, ".") || !strcmp(dir->d_name, "..")){
+			if (dir->d_name[0] == '.' || !strcmp(dir->d_name, ".") || !strcmp(dir->d_name, "..") 
+				|| !strcmp(dir->d_name+strlen(dir->d_name)-strlen(TEMPORARY_POSTFIX), TEMPORARY_POSTFIX)){
 				continue;
 			}
 
