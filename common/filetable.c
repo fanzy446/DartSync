@@ -6,6 +6,7 @@
 
 FileTable* createTable(){
 	FileTable* table = (FileTable*) malloc(sizeof(FileTable));
+	memset(table, 0, sizeof(FileTable));
 	table->head = NULL;
 	return table;
 }
@@ -93,7 +94,7 @@ int modifyNode(FileTable* table, char* filename, int size, unsigned long timesta
 
 
 void printTable(FileTable* table){
-	printf("------------------------------------CURRENT TABLE--------------------------------------\n");
+	printf("------------------------------------CURRENT FILE TABLE--------------------------------------\n");
 	Node* curnode = table->head;
 	while(curnode != NULL){
 		printf("Name:%-30s Size:%-10d Timestamp:%-15ld  ", curnode->name, curnode->size, curnode->timestamp);
@@ -103,6 +104,7 @@ void printTable(FileTable* table){
 		printf("\n");
 		curnode = curnode->pNext;
 	}
+	printf("\n");
 }
 
 char *getMyIP(){
@@ -236,7 +238,7 @@ void listDir(FileTable* table, const char* basedir, char *location){
 
 			// CASE: REGULAR FILES
 			if (S_ISREG(st.st_mode)){
-				//printf("File: %s\n", fullpath);
+				// printf("File %s: %d\n", fullpath, (int) st.st_size);
 				addNewNode(table, relpath, (int) st.st_size, (unsigned long) st.st_mtime, getMyIP());
 			}
 

@@ -8,6 +8,7 @@
 #include <signal.h>
 #include <netdb.h> 
 #include <unistd.h>
+#include <dirent.h>
 #include "common/constants.h"
 #include "common/seg.h"
 #include "peer/filemonitor.h"
@@ -33,6 +34,8 @@ int receiveTrackerState(int firstContact);
 int peer_compareFiletables(ptp_tracker_t segment, int firstContact);
 int listenToTracker();
 void peer_stop();
+int remove_directory_recursively(char *path);
+
 
 int main(){
 
@@ -160,13 +163,14 @@ int receiveTrackerState(int firstContact){
 		trackerconn = -100; 
 		return -1;
 	}
-	printf("Received global file state\n");
+	printf("\n-------------------Global File State-------------------\n");
+	interval = segment.interval - 5;		//should give big cushion for send time
+	// printf("Received global file state\n");
 	//Now compare the files and update accordingly
 	for (int i = 0 ; i < segment.file_table_size; i++){
 		printf("%s %d %ld\n", segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp);
 	}
-
-	interval = segment.interval - 5;		//should give big cushion for send time
+	printf("\n");
 	pthread_mutex_lock(filetable_mutex);
 	peer_compareFiletables(segment, firstContact);
 	pthread_mutex_unlock(filetable_mutex);
@@ -177,7 +181,6 @@ int receiveTrackerState(int firstContact){
 
 int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 	Node *currNode;
-	char filepath[LEN_FILE_NAME]; 
 	int i; 
 	int sendUpdate;
 	int found[segment.file_table_size];
@@ -185,22 +188,22 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 
 	sendUpdate = 0; 
 	currNode = filetable->head;
+
+	printTable(filetable);
+
 	while (currNode != NULL){
 		for (i = 0; i < segment.file_table_size; i++){
 			if (strcmp(currNode->name, segment.sendNode[i].name) == 0){
 				found[i] = 1; 
 				if (currNode->timestamp == segment.sendNode[i].timestamp){
-					printf("Timestamps for file %s are equal\n", currNode->name);
 					break;
 				}
 				else if (currNode->timestamp > segment.sendNode[i].timestamp){
-					printf("Peer has more recent version of '%s'.. informing tracker\n", currNode->name);
 					sendUpdate = 1; 
 
 					break;
 				}
 				else if (currNode->timestamp < segment.sendNode[i].timestamp){
-					printf("Peer has outdated file '%s'... downloading from peers\n", currNode->name);
 					modifyNode(filetable, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, NULL);
 
 					//block listening
@@ -214,7 +217,6 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 							perror("change Directory meta data failed.");
 						}
 					}else{
-						printf("filename to download: %s\n", segment.sendNode[i].name);
 						download(path, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
 					}
 					sendUpdate = 1; 
@@ -226,15 +228,24 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 
 		//If have file that tracker isn't tracking..
 		if (i == segment.file_table_size){
-			printf("Peer has file %s that tracker does not\n", segment.sendNode[i].name);
-			if (firstContact){
-			}
-			else{
-				deleteNode(filetable, currNode->name);
+			printf("Peer has file %s that tracker does not\n", currNode->name);
+			if (firstContact == 1){
+				sendUpdate = 1; 
+			} else{
 				blockFileListening();
-				remove(filepath);									//should work for directories unless we need to recursively remove files from it
+				char* filepath = getPath(path, currNode->name);
+				printf("Peer remove %s\n", filepath);
+				if(currNode->size == -1){
+					remove_directory_recursively(filepath);
+				}else{
+					remove(filepath);
+				}
+				free(filepath);
 				unblockFileListening();
+				deleteNode(filetable, currNode->name);
 			}
+		} else{
+			printf("Peer and tracker both have %s\n", currNode->name);
 			sendUpdate = 1; 
 		}
 
@@ -262,7 +273,7 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 			}
 			else{
 				blockFileListening();
-				printf("Filename to download: %s\n", segment.sendNode[i].name); 
+				// printf("Filename to download: %s\n", segment.sendNode[i].name); 
 				download(path, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
 				unblockFileListening();
 			}
@@ -272,4 +283,30 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 
 	return sendUpdate;
 }
+
+int remove_directory_recursively(char *path) {
+   DIR *d = opendir(path);
+   if(d){
+   		struct dirent *child;
+   		while((child = readdir(d))){
+			if (!strcmp(child->d_name, ".") || !strcmp(child->d_name, "..")) {
+	            continue;
+	        }
+	        char *buf = getPath(path, child->d_name);
+	        struct stat statbuf;
+	        stat(buf, &statbuf);
+            if (S_ISDIR(statbuf.st_mode)){
+               if(remove_directory_recursively(buf) < 0){
+               		return -1;
+               }
+            } else if(unlink(buf) < 0){
+               	return -1;
+            }
+            free(buf);
+   		}
+   		closedir(d);
+   }
+   return 1;
+}
+
 

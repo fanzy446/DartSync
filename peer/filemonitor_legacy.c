@@ -121,9 +121,11 @@ void freeFileInfoList(FileInfoList* files){
 void printAllFilesInfo(){
   FileInfoList* files = getAllFilesInfo();
   int i;
+  printf("----------------------------Local File System----------------------------\n");
   for (i=0; i<files->length; i++){
     printf("Name:%s, Size:%ld, Timestamp:%ld \n", files->list[i]->filepath, files->list[i]->size, files->list[i]->lastModifyTime);
   }
+  printf("\n");
   freeFileInfoList(files);
 }
 
