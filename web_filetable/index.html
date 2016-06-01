@@ -11,10 +11,35 @@
 
     <!-- Latest compiled and minified JavaScript -->
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+    <style type="text/css">
+      #title{
+        height: 80px;
+        line-height: 80px;
+        padding: 0 0 0 40px;
+        background-color: #026836;
+        color:white;
+        font-size: 40px;
+      }
+
+      #content{
+        padding: 15px 0 0 40px;
+      }
+      
+      #table_head{
+        font-size: 24px;
+      }
+
+      .single_line{
+        margin: 3px;
+      }
+    </style>
   </head>
-  <body style="width:60%;padding:15px;">
-    
-  </body>
+  <body>
+  <div id="title">Dsync Web-FileTable</div>
+  <div id="content">
+    <div id="table_head"><span style="display:inline-block;width:35%; ">Path</span><span style="margin-left:150px;display:inline-block;width:10%;">File size</span> <span style="margin-left:100px;display:inline-block;width:10%;">Timestamp</span></div>
+  </div>
+</body>
   <script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
   <script type="text/javascript">
     var socket = io('http://localhost:3000');
@@ -23,7 +48,9 @@
     });
     socket.on('on html', function(data){
       console.log(data);    
-      document.body.innerHTML = data.data;
+      //document.body.innerHTML = data.data;
+      contentDiv = document.getElementById("content");
+      content.insertAdjacentHTML("beforeend", data.data);
     });
     socket.on('disconnect', function(){});
   </script>
