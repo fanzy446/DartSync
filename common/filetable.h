@@ -49,6 +49,7 @@ int modifyNode(FileTable* table, char* filename, int size, unsigned long timesta
 void packFileTable(FileTable *table, pthread_mutex_t *filetable_mutex, Node nodes[], int *setNodeNum);
 int peerHasFile(Node *fileRecord, char *ip);
 void listDir(FileTable* table, const char* dirname, char *location);
+int removeFromFilePeers(FileTable *table, char ip[IP_LEN]);
 
 /*
 *	SUPPORT FUNCTIONS

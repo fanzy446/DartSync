@@ -1,6 +1,8 @@
 #include "peertable.h"
 #include "constants.h"
 #include <stdlib.h> 
+#include <string.h>
+#include <unistd.h>
 #include <stdio.h>
 
 
@@ -21,6 +23,9 @@ int tracker_peertableremove(ts_peertable_t *table, tracker_peer_t *peer){
 	tracker_peer_t *lead; 
 	tracker_peer_t *trail;
 
+	if (table->head == NULL){
+		printf("Can't remove peer from empty list\n");
+	}
 	// Easy removal if peer is head
 	if (table->head == peer){
 		table->head = table->head->next; 
@@ -50,6 +55,7 @@ int tracker_peertabledestroy(ts_peertable_t *trackerpeertable){
 	while (trackerpeertable->head != NULL){
 		temp = trackerpeertable->head;
 		trackerpeertable->head = trackerpeertable->head->next;
+		close(temp->sockfd);
 		free(temp);
 	}
 	free(trackerpeertable);

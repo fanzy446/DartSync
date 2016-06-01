@@ -61,8 +61,10 @@ int main(){
 	}
 
 	//Start thread to let tracker know it is still alive
+	int *arg = malloc(sizeof(*arg));
+	*arg = interval; 
 	pthread_t heartbeat_thread;
-	pthread_create(&heartbeat_thread, NULL, sendheartbeat, (void *) 0);
+	pthread_create(&heartbeat_thread, NULL, sendheartbeat, (void *) arg);
 
 	// Create filemonitor thread and its args
 	filemonitorArg_st *args = malloc(sizeof(filemonitorArg_st));
@@ -108,7 +110,7 @@ int peer_connToTracker(){
 		printf("Connection to tracker failed\n");
 		return -1;
 	}
-	printf("connection established\n");
+	printf("Connected to tracker\n");
 	return trackerconn;
 
 }
@@ -123,12 +125,16 @@ void peer_stop(){
 }
 
 void *sendheartbeat(void *arg){
-	ptp_peer_t heartbeatseg;
-	heartbeatseg.type = KEEP_ALIVE;
-
+	int heartrate = *((int *) arg); 
 	while (1){
-		sleep(interval);
-		peer_sendseg(trackerconn, &heartbeatseg);
+		ptp_peer_t heartbeatseg;
+		heartbeatseg.type = KEEP_ALIVE;
+		if (peer_sendseg(trackerconn, &heartbeatseg) < 0) {
+			printf("Failed to send heartbeat\n");
+			return NULL; 
+		}
+		sleep(heartrate);
+		fflush(stdout);
 	}
 }
 
@@ -155,11 +161,12 @@ int receiveTrackerState(int firstContact){
 		return -1;
 	}
 	printf("Received global file state\n");
-	interval = segment.interval - 5;		//should give big cushion for send time
 	//Now compare the files and update accordingly
 	for (int i = 0 ; i < segment.file_table_size; i++){
 		printf("%s %d %ld\n", segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp);
 	}
+
+	interval = segment.interval - 5;		//should give big cushion for send time
 	pthread_mutex_lock(filetable_mutex);
 	peer_compareFiletables(segment, firstContact);
 	pthread_mutex_unlock(filetable_mutex);
@@ -189,6 +196,7 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 				else if (currNode->timestamp > segment.sendNode[i].timestamp){
 					printf("Peer has more recent version of '%s'.. informing tracker\n", currNode->name);
 					sendUpdate = 1; 
+
 					break;
 				}
 				else if (currNode->timestamp < segment.sendNode[i].timestamp){
@@ -209,6 +217,7 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 						printf("filename to download: %s\n", segment.sendNode[i].name);
 						download(path, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
 					}
+					sendUpdate = 1; 
 					unblockFileListening();
 					break; 
 				}
@@ -219,7 +228,6 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 		if (i == segment.file_table_size){
 			printf("Peer has file %s that tracker does not\n", segment.sendNode[i].name);
 			if (firstContact){
-				sendUpdate = 1; 
 			}
 			else{
 				deleteNode(filetable, currNode->name);
@@ -227,6 +235,7 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 				remove(filepath);									//should work for directories unless we need to recursively remove files from it
 				unblockFileListening();
 			}
+			sendUpdate = 1; 
 		}
 
 		currNode = currNode->pNext;
@@ -257,6 +266,7 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 				download(path, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
 				unblockFileListening();
 			}
+			sendUpdate = 1; 
 		}
 	}
 
