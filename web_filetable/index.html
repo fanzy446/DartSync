@@ -35,9 +35,9 @@
     </style>
   </head>
   <body>
-  <div id="title">Dsync Web-FileTable</div>
+  <div id="title">DartSync Web-FileTable</div>
   <div id="content">
-    <div id="table_head"><span style="display:inline-block;width:35%; ">Path</span><span style="margin-left:150px;display:inline-block;width:10%;">File size</span> <span style="margin-left:100px;display:inline-block;width:10%;">Timestamp</span></div>
+    
   </div>
 </body>
   <script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
@@ -47,10 +47,8 @@
       console.log("conn");
     });
     socket.on('on html', function(data){
-      console.log(data);    
-      //document.body.innerHTML = data.data;
       contentDiv = document.getElementById("content");
-      content.insertAdjacentHTML("beforeend", data.data);
+      content.innerHTML = data.data;
     });
     socket.on('disconnect', function(){});
   </script>
