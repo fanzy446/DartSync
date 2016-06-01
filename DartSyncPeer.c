@@ -182,6 +182,8 @@ int receiveTrackerState(int firstContact){
 
 
 int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
+	
+	blockFileListening();
 	Node *currNode;
 	int i; 
 	int sendUpdate;
@@ -234,7 +236,7 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 			if (firstContact == 1){
 				sendUpdate = 1; 
 			} else{
-				blockFileListening();
+				
 				char* filepath = getPath(path, currNode->name);
 				printf("Peer remove %s\n", filepath);
 				if(currNode->size == -1){
@@ -243,7 +245,6 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 					remove(filepath);
 				}
 				free(filepath);
-				unblockFileListening();
 				deleteNode(filetable, currNode->name);
 			}
 		} else{
@@ -283,6 +284,8 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 		}
 	}
 
+	unblockFileListening();
+
 	return sendUpdate;
 }
 
@@ -308,6 +311,7 @@ int remove_directory_recursively(char *path) {
    		}
    		closedir(d);
    }
+   rmdir(path);
    return 1;
 }
 
