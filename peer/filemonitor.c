@@ -54,6 +54,7 @@ FileInfo* getFileInfo(char* filename){
 	FileInfo* file;
 	char fullpath[LEN_FILE_NAME];
 	file = (FileInfo*) malloc(sizeof(FileInfo));
+	memset(file, 0, sizeof(FileInfo));
 	sprintf(fullpath, "%s/%s", dirPath, filename);
 	struct stat st;
 	stat(fullpath, &st);

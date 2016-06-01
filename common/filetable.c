@@ -123,6 +123,7 @@ char *getMyIP(){
 
 Node* createNode(char* filename, int size, unsigned long timestamp){
 	Node* node = (Node*) malloc(sizeof(Node));
+	memset(node, 0, sizeof(Node));
 	node->size = size;
 	strcpy(node->name, filename);
 	node->timestamp = timestamp;
