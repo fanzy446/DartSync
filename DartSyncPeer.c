@@ -64,8 +64,10 @@ int main(){
 	}
 
 	//Start thread to let tracker know it is still alive
+	int *arg = malloc(sizeof(*arg));
+	*arg = interval; 
 	pthread_t heartbeat_thread;
-	pthread_create(&heartbeat_thread, NULL, sendheartbeat, (void *) 0);
+	pthread_create(&heartbeat_thread, NULL, sendheartbeat, (void *) arg);
 
 	// Create filemonitor thread and its args
 	filemonitorArg_st *args = malloc(sizeof(filemonitorArg_st));
@@ -111,7 +113,7 @@ int peer_connToTracker(){
 		printf("Connection to tracker failed\n");
 		return -1;
 	}
-	printf("connection established\n");
+	printf("Connected to tracker\n");
 	return trackerconn;
 
 }
@@ -126,16 +128,17 @@ void peer_stop(){
 }
 
 void *sendheartbeat(void *arg){
-	ptp_peer_t* heartbeatseg = malloc(sizeof(ptp_peer_t));
-	memset(heartbeatseg, 0, sizeof(ptp_peer_t));
-	heartbeatseg->type = KEEP_ALIVE;
-
+	int heartrate = *((int *) arg); 
 	while (1){
-		sleep(interval);
-		peer_sendseg(trackerconn, heartbeatseg);
+		ptp_peer_t heartbeatseg;
+		heartbeatseg.type = KEEP_ALIVE;
+		if (peer_sendseg(trackerconn, &heartbeatseg) < 0) {
+			printf("Failed to send heartbeat\n");
+			return NULL; 
+		}
+		sleep(heartrate);
+		fflush(stdout);
 	}
-
-	free(heartbeatseg);
 }
 
 
@@ -162,6 +165,7 @@ int receiveTrackerState(int firstContact){
 	}
 	printf("\n-------------------Global File State-------------------\n");
 	interval = segment.interval - 5;		//should give big cushion for send time
+	// printf("Received global file state\n");
 	//Now compare the files and update accordingly
 	for (int i = 0 ; i < segment.file_table_size; i++){
 		printf("%s %d %ld\n", segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp);
@@ -196,6 +200,7 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 				}
 				else if (currNode->timestamp > segment.sendNode[i].timestamp){
 					sendUpdate = 1; 
+
 					break;
 				}
 				else if (currNode->timestamp < segment.sendNode[i].timestamp){
@@ -214,6 +219,7 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 					}else{
 						download(path, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
 					}
+					sendUpdate = 1; 
 					unblockFileListening();
 					break; 
 				}
@@ -240,6 +246,7 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 			}
 		} else{
 			printf("Peer and tracker both have %s\n", currNode->name);
+			sendUpdate = 1; 
 		}
 
 		currNode = currNode->pNext;
@@ -270,6 +277,7 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 				download(path, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
 				unblockFileListening();
 			}
+			sendUpdate = 1; 
 		}
 	}
 

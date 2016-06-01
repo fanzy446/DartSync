@@ -170,6 +170,25 @@ int peerHasFile(Node *fileRecord, char *ip){
 	return 1; 	
 }
 
+int removeFromFilePeers(FileTable *table, char ip[IP_LEN]){
+	Node *file = table->head;
+	while (file != NULL){
+		for (int i = 0; i < file->peernum; i++){
+			if (strcmp(file->peerip[i], ip) == 0 ){
+				memmove(file->peerip[i], file->peerip[i + 1], sizeof(char) * IP_LEN * (file->peernum - i));
+				memset(file->peerip[i], 0, sizeof(char) * IP_LEN);
+				file->peernum--; 
+				if (file->peernum == 0){
+					deleteNode(table, file->name);
+				}
+				break; // Move on to next file
+			}
+		}
+		file = file->pNext; 
+	}
+	return 1; 
+}
+
 /*
 * Recursively scans all files/dirs under the directory
 * , and add them as nodes into a table

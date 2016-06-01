@@ -11,6 +11,7 @@
 #include <pthread.h>
 #include <sys/time.h>
 #include <arpa/inet.h> 
+#include <signal.h> 
 #include <unistd.h>
 #include <sys/socket.h>
 #include "common/seg.h"
@@ -36,9 +37,13 @@ int tracker_acceptRegister();
 int tracker_compareFiletables(ptp_peer_t segment);
 int broadcastUpdates();
 void *connWeb(void *arg); 
+void tracker_stop();
 
 
 int main(){
+
+	//register a signal handler which is used to terminate the process
+	signal(SIGINT, tracker_stop);
 
 	//initialize peer and file table as empty
 	peertable = tracker_peertablecreate();
@@ -51,10 +56,12 @@ int main(){
 	pthread_mutex_init(filetable_mutex, NULL);
 
 	//Start webapp connection thread
+	printf("Starting web thread\n");
 	pthread_t webconn_thread;
 	pthread_create(&webconn_thread, NULL, connWeb, (void*) 0);
 
 	//Start listenheartbeat thread 
+	printf("Starting monitor alive thread\n");
 	pthread_t monitorAlive_thread;
 	pthread_create(&monitorAlive_thread, NULL, tracker_monitorAlive, (void *) 0);
 
@@ -100,7 +107,7 @@ int tracker_listenForPeers(){
 			newPeerEntry->sockfd = newpeer;
 			newPeerEntry->next = NULL; 
 			memcpy(newPeerEntry->ip, inet_ntoa(peer_addr.sin_addr), IP_LEN);
-			newPeerEntry->last_time_stamp = 0;										//Hasn't received the interval yet
+			newPeerEntry->last_time_stamp = -10;										//Hasn't received the interval yet
 			tracker_peertableadd(peertable, newPeerEntry);
 
 			//create a new handshake for the connection
@@ -111,27 +118,37 @@ int tracker_listenForPeers(){
 
 }
 
-// Thread that periodically checks what peers are alive
-// Removes peers from table if timeout of heartbeat
+void tracker_stop(){
+	printf("Received SIGINT\n");
+	destroyTable(filetable);
+	tracker_peertabledestroy(peertable);
+	pthread_mutex_destroy(peertable_mutex);
+	pthread_mutex_destroy(filetable_mutex); 
+	exit(0);
+}
+
 void* tracker_monitorAlive(void *arg){
 	while (1){
-		//get the current time 
-		struct timeval currentTime;
+		tracker_peer_t *toRemove;
+		tracker_peer_t *peer; 
+		struct timeval currentTime; 
 		gettimeofday(&currentTime, NULL);
 
-		//Iterate through all presumed to be 'alive' peers
 		pthread_mutex_lock(peertable_mutex);
-		tracker_peer_t *peer = peertable->head; 
+		peer = peertable->head; 
 		while (peer != NULL){
-			//remove all dead peers
-			if (currentTime.tv_sec - peer->last_time_stamp > HEARTRATE && peer->last_time_stamp != 0){
-				printf("Peer has disconnected\n"); 
-				tracker_peer_t *toRemove = peer; 
-				peer = peer->next;
+			if ((currentTime.tv_sec - peer->last_time_stamp > HEARTRATE) && (peer->last_time_stamp != -10)){
+				printf("Peer disconnected\n");
+				toRemove = peer;
+				peer = peer->next; 
+				pthread_mutex_lock(filetable_mutex);
+				removeFromFilePeers(filetable, toRemove->ip);
+				pthread_mutex_unlock(filetable_mutex);
 				tracker_peertableremove(peertable, toRemove);
-				continue; 
+				printTable(filetable);
+				continue;
 			}
-			peer = peer->next;
+			peer = peer->next; 
 		}
 		tracker_peertableprint(peertable);
 		pthread_mutex_unlock(peertable_mutex);
@@ -217,8 +234,6 @@ void* tracker_Handshake(void *arg){
 
 		//receive a segment
 		if (tracker_recvseg(peer->sockfd, &segment) < 0){
-			close(peer->sockfd);
-			tracker_peertableremove(peertable, peer);
 			pthread_exit(NULL);
 		}
 
@@ -227,13 +242,14 @@ void* tracker_Handshake(void *arg){
 			case REGISTER: 
 				// printf("recieved register\n");
 				tracker_acceptRegister(peer->sockfd);
-				tracker_keepAlive(peer); 				//Start tracking whether this peer is alive
 				break; 
 			case KEEP_ALIVE: 
 				tracker_keepAlive(peer);
+				printf("Received keep alive message\n");
 				break; 
 			case FILE_UPDATE: 
 				// printf("received file update packet\n");
+				fflush(stdout);
 				if (tracker_compareFiletables(segment) > 0){
 					broadcastUpdates();
 				}
@@ -276,7 +292,8 @@ int tracker_compareFiletables(ptp_peer_t segment){
 				havePeerFile[i] = 1; 
 
 				if (currNode->timestamp == segment.sendNode[i].timestamp){
-					peerHasFile(currNode, segment.peer_ip);						//Checks to make sure tracker has record of peer possessing this file
+					peerHasFile(currNode, segment.peer_ip);	
+					broadcast = 1; 					//Checks to make sure tracker has record of peer possessing this file
 					break;
 				}
 				else if (currNode->timestamp > segment.sendNode[i].timestamp){

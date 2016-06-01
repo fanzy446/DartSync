@@ -15,7 +15,7 @@
 
 #define IP_LEN 45
 
-#define HEARTRATE 600
+#define HEARTRATE 60
 
 #define MAX_PEERS 16
 

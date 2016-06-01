@@ -56,10 +56,9 @@ function socketToTracker(){
 }
 
 function parseFileData(str){
-	var htmlStr = "";
+	var htmlStr = "<div><span class='glyphicon glyphicon-refresh' aria-hidden='true'></span> &nbsp Last Update: "+ new Date() +"</div>";
 	var entries = str.split("|");
 	entries.pop();
-	var maxLevel = 1;
 	for(var i = 0; i<entries.length; i++){
 		entries[i] = entries[i].split(" ");
 		var tmpObj = {};
@@ -68,9 +67,6 @@ function parseFileData(str){
 		tmpObj.timestamp = entries[i][2];
 		tmpObj.paths = tmpObj.fullPath.split("/");
 		tmpObj.level = tmpObj.paths.length;
-		if(tmpObj.level > maxLevel){
-			maxLevel = tmpObj.level;
-		}
 		entries[i] = tmpObj;
 	}
 
@@ -106,6 +102,8 @@ function parseFileData(str){
 			}
 
 			if(k == entries[j]["level"] - 1){
+				console.log(tmpObj.name, entries[j]["size"]);
+				
 				pointer.size = entries[j]["size"];
 				if(pointer.size != -1){
 					tmpObj.type = "file";
@@ -116,6 +114,7 @@ function parseFileData(str){
 			}
 		}
 	}
+
 
 	//console.log(tree);
 	var prev;
@@ -128,13 +127,15 @@ function parseFileData(str){
 		}else{
 			icon = "<span class='glyphicon glyphicon-file' aria-hidden='true'></span>&nbsp";
 		}
-
-		htmlStr +="<div style='margin-left:" + pointer[0].level*50 + "px;margin-right:20px'>"+ icon + pointer[0].name +"</div>";
+		htmlStr +="<div class='single_line'><span style='display:inline-block;width:35%; padding-left:" + pointer[0].level*50 + "px;'>"+ icon + pointer[0].name + "</span>";
+		//console.log(pointer[0].name, pointer[0].level);
 		prev = pointer[0];
 		if(pointer[0].children){
 			pointer = pointer[0].children;
+			htmlStr += "</div>";
 		}else{
-			htmlStr += "<div style='float:right;position: relative;top:-24px;'><span>size:"+ prev.size +"</span> | <span>timestamp:"+ prev.timestamp +"</span></div>"
+			htmlStr += "<span style='margin-left:150px;display:inline-block;width:10%;'>"+ prev.size +"</span> <span style='margin-left:100px;display:inline-block;width:10%;'>"+ prev.timestamp +"</span></div>"
+			//console.log(prev.size, prev.timestamp);
 			while(pointer.length<=1){
 				prev = prev.parent;
 				pointer.shift();
@@ -148,6 +149,7 @@ function parseFileData(str){
 			pointer.shift();
 		}
 	}
-	htmlStr += "<div><span class='glyphicon glyphicon-refresh' aria-hidden='true'></span> &nbsp Last Update: "+ new Date() +"</div>";
-	return htmlStr;
+	
+	//document.body.innerHTML += htmlStr;
+	return htmlStr
 }
