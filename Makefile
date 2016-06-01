@@ -7,7 +7,7 @@ DartSyncPeer: DartSyncPeer.c common/seg.o peer/filemonitor.o common/filetable.o 
 	gcc -Wall -pedantic -std=c99 -g -pthread DartSyncPeer.c common/seg.o peer/filemonitor.o common/filetable.o peer/p2p.o -o DartSyncPeer -lcrypto
 
 peer/filemonitor.o: peer/filemonitor.c peer/filemonitor.h
-	gcc -Wall -pedantic -g -c peer/filemonitor.c -o peer/filemonitor.o 
+	gcc -Wall -pedantic -std=gnu99 -g -c peer/filemonitor.c -o peer/filemonitor.o 
 
 common/filetable.o: common/filetable.c common/filetable.h
 	gcc -Wall -pedantic -D_GNU_SOURCE -std=c99 -g -c common/filetable.c -o common/filetable.o
