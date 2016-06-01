@@ -19,15 +19,18 @@
 
 #define MAX_PEERS 16
 
-#define LEN_FILE_NAME 1024
+#define LEN_FILE_NAME 128
 
-#define MAX_FILES 1024
+#define MAX_FILES 100
+
+#define FILE_MONITOR_INTERVAL 1000000000 // IN NANOSEC (10^-9)
+
+#define TEMPORARY_POSTFIX "dartsync"
 
 
 // MUST REDEFINE THE FOLLOWING- unknown what to set them as right now
 #define PROTOCOL_LEN 0
 #define RESERVED_LEN 8
-#define FILE_NAME_LEN 100 
 
 #define MD5_LEN 32
 

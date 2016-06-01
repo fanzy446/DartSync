@@ -65,10 +65,10 @@ int main(){
 	}
 
 	//Start thread to let tracker know it is still alive
-	int *arg = malloc(sizeof(*arg));
-	*arg = interval; 
+	int *iptr = malloc(sizeof(int));
+	*iptr = interval; 
 	pthread_t heartbeat_thread;
-	pthread_create(&heartbeat_thread, NULL, sendheartbeat, (void *) arg);
+	pthread_create(&heartbeat_thread, NULL, sendheartbeat, iptr);
 
 	// Create filemonitor thread and its args
 	filemonitorArg_st *args = malloc(sizeof(filemonitorArg_st));
@@ -150,6 +150,7 @@ void *sendheartbeat(void *arg){
 
 int sendregister(){
 	ptp_peer_t registerPacket;
+	memset(&registerPacket, 0, sizeof(ptp_peer_t));
 	registerPacket.type = REGISTER;
 	memcpy(registerPacket.peer_ip, getMyIP(), IP_LEN);
 	if (peer_sendseg(trackerconn, &registerPacket) < 0 ){
@@ -164,6 +165,7 @@ int sendregister(){
 int receiveTrackerState(int firstContact){
 	ptp_tracker_t segment; 
 	int update;
+	memset(&segment, 0, sizeof(ptp_tracker_t));
 
 	if (peer_recvseg(trackerconn, &segment) < 0){
 		printf("Receive failed\n");
@@ -187,6 +189,8 @@ int receiveTrackerState(int firstContact){
 
 
 int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
+	
+	blockFileListening();
 	Node *currNode;
 	int i; 
 	int sendUpdate;
@@ -213,7 +217,6 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 					sendUpdate = 1; 
 
 					//block listening
-					blockFileListening(); 
 					if( segment.sendNode[i].size == -1){
 						char* dir = getPath(path, segment.sendNode[i].name);
 						struct utimbuf fakeTime;
@@ -225,7 +228,6 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 					}else{
 						download(path, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
 					}
-					unblockFileListening();
 					break; 
 				}
 			}
@@ -237,7 +239,7 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 			sendUpdate = 1; 
 			if (firstContact == 1){
 			} else{
-				blockFileListening();
+				
 				char* filepath = getPath(path, currNode->name);
 				printf("Peer remove %s\n", filepath);
 				if(currNode->size == -1){
@@ -246,7 +248,6 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 					remove(filepath);
 				}
 				free(filepath);
-				unblockFileListening();
 				deleteNode(filetable, currNode->name);
 			}
 		} 
@@ -274,13 +275,13 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 				}
 			}
 			else{
-				blockFileListening();
 				// printf("Filename to download: %s\n", segment.sendNode[i].name); 
 				download(path, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
-				unblockFileListening();
 			}
 		}
 	}
+
+	unblockFileListening();
 
 	return sendUpdate;
 }
@@ -307,6 +308,7 @@ int remove_directory_recursively(char *path) {
    		}
    		closedir(d);
    }
+   rmdir(path);
    return 1;
 }
 

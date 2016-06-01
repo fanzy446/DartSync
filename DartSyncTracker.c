@@ -104,6 +104,7 @@ int tracker_listenForPeers(){
 			printf("New peer connected\n");
 			//create a new peer entry
 			tracker_peer_t *newPeerEntry = malloc(sizeof(tracker_peer_t));
+			memset(newPeerEntry, 0, sizeof(tracker_peer_t));
 			newPeerEntry->sockfd = newpeer;
 			newPeerEntry->next = NULL; 
 			memcpy(newPeerEntry->ip, inet_ntoa(peer_addr.sin_addr), IP_LEN);
@@ -230,6 +231,7 @@ void *connWeb(void *arg){
 void* tracker_Handshake(void *arg){
 	tracker_peer_t *peer = (tracker_peer_t *)arg; 
 	ptp_peer_t segment; 
+	memset(&segment, 0, sizeof(ptp_peer_t));
 
 
 	while (1){
@@ -266,6 +268,7 @@ void* tracker_Handshake(void *arg){
  */
 int tracker_acceptRegister(int peerconn){
 	ptp_tracker_t segment;
+	memset(&segment, 0, sizeof(ptp_tracker_t));
 	segment.interval = HEARTRATE;
 	packFileTable(filetable, filetable_mutex, segment.sendNode, &segment.file_table_size);
 
@@ -339,6 +342,7 @@ int tracker_compareFiletables(ptp_peer_t segment){
 int broadcastUpdates(){
 	tracker_peer_t *currPeer;
 	ptp_tracker_t broadcast;
+	memset(&broadcast, 0, sizeof(ptp_tracker_t));
 
 	//Construct broadcast message
 	packFileTable(filetable, filetable_mutex, broadcast.sendNode, &broadcast.file_table_size);

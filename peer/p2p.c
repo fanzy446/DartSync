@@ -45,9 +45,13 @@ int download(char* rootpath, char* filename, int size, unsigned long int timesta
 	char tmpFileName[FILE_NAME_LENGTH];
 	for(int i = 0; i < total; i++){
 		memset(tmpFileName, 0, FILE_NAME_LENGTH);
-		sprintf(tmpFileName, "%s_%lu_%d.dartsync", realFileName, timestamp, i);
+		sprintf(tmpFileName, "%s_%lu_%d.%s", realFileName, timestamp, i, TEMPORARY_POSTFIX);
 		if( access( tmpFileName, F_OK ) != -1 ) {
-			FILE* fp = fopen(tmpFileName,"r");
+			FILE* fp = fopen(tmpFileName,"rb");
+			if(fp == NULL){
+				perror("download: cannot open file");
+				return -1;
+			}
 			fseek(fp, 0L, SEEK_END);
 			int sz = ftell(fp);
 			if(i < total - 1 && sz == BLOCK_SIZE || i == total -1 && sz == (size-1)%BLOCK_SIZE+1){
@@ -74,7 +78,7 @@ int download(char* rootpath, char* filename, int size, unsigned long int timesta
 
 		//int size;
 		int partition_count = 0;
-		if((fp = fopen(realFileName,"r"))!=NULL){
+		if((fp = fopen(realFileName,"br"))!=NULL){
 			fseek(fp,0,SEEK_END);
 			for(int t=0; t < local_total; t++){
 			
@@ -156,7 +160,7 @@ int download(char* rootpath, char* filename, int size, unsigned long int timesta
 	for(int i = 0; i < total; i++){
 		char tmpFile[FILE_NAME_LENGTH];
 		memset(tmpFile, 0, FILE_NAME_LENGTH);
-		sprintf(tmpFile, "%s_%lu_%d.dartsync", realFileName, timestamp, i);
+		sprintf(tmpFile, "%s_%lu_%d.%s", realFileName, timestamp, i, TEMPORARY_POSTFIX);
 		FILE* tmp = fopen(tmpFile,"rb");
 		memset(buffer, 0, BLOCK_SIZE);
 		if((singleSize = fread(buffer,1,BLOCK_SIZE,tmp)) > 0){
@@ -247,9 +251,9 @@ void* singleDownload(void* args){
 			// printf("part %d just the same!\n", request_args->partition);
 			char filename[FILE_NAME_LENGTH];
 			memset(filename, 0, FILE_NAME_LENGTH);
-			sprintf(filename, "%s_%lu_%d.dartsync", realFileName, request_args->timestamp, request_args->partition);
+			sprintf(filename, "%s_%lu_%d.%s", realFileName, request_args->timestamp, request_args->partition, TEMPORARY_POSTFIX);
 			FILE* fp;
-			if((fp = fopen(realFileName,"r"))!=NULL){
+			if((fp = fopen(realFileName,"rb"))!=NULL){
 			 	fseek(fp,0,SEEK_END);
 			 	int size;
 			 	int total = (ftell(fp)-1)/BLOCK_SIZE+1;
@@ -261,7 +265,7 @@ void* singleDownload(void* args){
 				char data[size];
 				fseek(fp, request_args->partition * BLOCK_SIZE, SEEK_SET);
 				fread(data, sizeof(char), size, fp);
-				FILE* f = fopen(filename,"w");
+				FILE* f = fopen(filename,"wb");
 				fwrite(data,size,1,f);
 				fclose(f);
 				fclose(fp);
@@ -272,8 +276,12 @@ void* singleDownload(void* args){
 		}else{
 			char filename[FILE_NAME_LENGTH];
 			memset(filename, 0, FILE_NAME_LENGTH);
-			sprintf(filename, "%s_%lu_%d.dartsync", realFileName, request_args->timestamp, request_args->partition);
+			sprintf(filename, "%s_%lu_%d.%s", realFileName, request_args->timestamp, request_args->partition, TEMPORARY_POSTFIX);
 			FILE* f = fopen(filename,"wb");
+			if(f == NULL){
+				perror("singleDownload: open file failed");
+				break;
+			}
 			fwrite(recv_pkg.data,recv_pkg.size,1,f);
 			fclose(f);
 			free(realFileName);
