@@ -61,6 +61,7 @@ int main(){
 	sendregister();
 	if (receiveTrackerState(1) > 0){
 		sendFileUpdate(filetable, filetable_mutex, trackerconn);
+		// printTable(filetable);
 	}
 
 	//Start thread to let tracker know it is still alive
@@ -79,7 +80,12 @@ int main(){
 
 
 	while (trackerconn != -100){				// While the connection to tracker still exists
-		receiveTrackerState(0);
+		if (receiveTrackerState(0) > 0){
+			sendFileUpdate(filetable, filetable_mutex, trackerconn);
+			printTable(filetable);
+		}
+		// receiveTrackerState(0);
+		// sendFileUpdate(filetable, filetable_mutex, trackerconn);
 	}
 	exit(0);
 }
@@ -157,6 +163,7 @@ int sendregister(){
 
 int receiveTrackerState(int firstContact){
 	ptp_tracker_t segment; 
+	int update;
 
 	if (peer_recvseg(trackerconn, &segment) < 0){
 		printf("Receive failed\n");
@@ -172,9 +179,9 @@ int receiveTrackerState(int firstContact){
 	}
 	printf("\n");
 	pthread_mutex_lock(filetable_mutex);
-	peer_compareFiletables(segment, firstContact);
+	update = peer_compareFiletables(segment, firstContact);
 	pthread_mutex_unlock(filetable_mutex);
-	return 1; 
+	return update; 
 
 }
 
@@ -188,8 +195,6 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 
 	sendUpdate = 0; 
 	currNode = filetable->head;
-
-	printTable(filetable);
 
 	while (currNode != NULL){
 		for (i = 0; i < segment.file_table_size; i++){
@@ -205,6 +210,7 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 				}
 				else if (currNode->timestamp < segment.sendNode[i].timestamp){
 					modifyNode(filetable, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, NULL);
+					sendUpdate = 1; 
 
 					//block listening
 					blockFileListening(); 
@@ -219,7 +225,6 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 					}else{
 						download(path, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
 					}
-					sendUpdate = 1; 
 					unblockFileListening();
 					break; 
 				}
@@ -229,8 +234,8 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 		//If have file that tracker isn't tracking..
 		if (i == segment.file_table_size){
 			printf("Peer has file %s that tracker does not\n", currNode->name);
+			sendUpdate = 1; 
 			if (firstContact == 1){
-				sendUpdate = 1; 
 			} else{
 				blockFileListening();
 				char* filepath = getPath(path, currNode->name);
@@ -244,11 +249,7 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 				unblockFileListening();
 				deleteNode(filetable, currNode->name);
 			}
-		} else{
-			printf("Peer and tracker both have %s\n", currNode->name);
-			sendUpdate = 1; 
-		}
-
+		} 
 		currNode = currNode->pNext;
 
 	}
@@ -260,6 +261,7 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 
 			//Add node to the mutex corresponding to the file
 			addNewNode(filetable, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, NULL);
+			sendUpdate = 1; 
 
 			if (segment.sendNode[i].size == -1){
 				char* dir = getPath(path, segment.sendNode[i].name);
@@ -277,7 +279,6 @@ int peer_compareFiletables(ptp_tracker_t segment, int firstContact){
 				download(path, segment.sendNode[i].name, segment.sendNode[i].size, segment.sendNode[i].timestamp, segment.sendNode[i].peerip, segment.sendNode[i].peernum);
 				unblockFileListening();
 			}
-			sendUpdate = 1; 
 		}
 	}
 

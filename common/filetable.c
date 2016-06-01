@@ -175,8 +175,9 @@ int removeFromFilePeers(FileTable *table, char ip[IP_LEN]){
 	while (file != NULL){
 		for (int i = 0; i < file->peernum; i++){
 			if (strcmp(file->peerip[i], ip) == 0 ){
-				memmove(file->peerip[i], file->peerip[i + 1], sizeof(char) * IP_LEN * (file->peernum - i));
-				memset(file->peerip[i], 0, sizeof(char) * IP_LEN);
+				// printf("moving %s, peernum = %d (doing peernum -1 )\n", file->peerip[i+1], peernum)
+				memmove(file->peerip[i], file->peerip[i + 1], sizeof(char) * IP_LEN * (file->peernum ));
+				memset(file->peerip[file->peernum], 0, sizeof(char) * IP_LEN);
 				file->peernum--; 
 				if (file->peernum == 0){
 					deleteNode(table, file->name);
@@ -239,13 +240,13 @@ void listDir(FileTable* table, const char* basedir, char *location){
 			// CASE: REGULAR FILES
 			if (S_ISREG(st.st_mode)){
 				// printf("File %s: %d\n", fullpath, (int) st.st_size);
-				addNewNode(table, relpath, (int) st.st_size, (unsigned long) st.st_mtime, getMyIP());
+				addNewNode(table, relpath, (int) st.st_size, (unsigned long) st.st_mtime, NULL);
 			}
 
 			// CASE: DIRECTORIES
 			if (S_ISDIR(st.st_mode)){
 				//printf("Dir: %s\n", fullpath);
-				addNewNode(table, relpath, -1, (unsigned long) st.st_mtime, getMyIP());
+				addNewNode(table, relpath, -1, (unsigned long) st.st_mtime, NULL);
 				listDir(table, basedir, relpath);
 			}
 		}

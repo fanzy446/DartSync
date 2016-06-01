@@ -109,6 +109,8 @@ int tracker_listenForPeers(){
 			memcpy(newPeerEntry->ip, inet_ntoa(peer_addr.sin_addr), IP_LEN);
 			newPeerEntry->last_time_stamp = -10;										//Hasn't received the interval yet
 			tracker_peertableadd(peertable, newPeerEntry);
+			tracker_peertableprint(peertable);
+
 
 			//create a new handshake for the connection
 			pthread_t handshake_thread;
@@ -137,7 +139,7 @@ void* tracker_monitorAlive(void *arg){
 		pthread_mutex_lock(peertable_mutex);
 		peer = peertable->head; 
 		while (peer != NULL){
-			if ((currentTime.tv_sec - peer->last_time_stamp > HEARTRATE) && (peer->last_time_stamp != -10)){
+			if ((currentTime.tv_sec - peer->last_time_stamp > HEARTRATE + 10) && (peer->last_time_stamp != -10)){
 				printf("Peer disconnected\n");
 				toRemove = peer;
 				peer = peer->next; 
@@ -145,12 +147,12 @@ void* tracker_monitorAlive(void *arg){
 				removeFromFilePeers(filetable, toRemove->ip);
 				pthread_mutex_unlock(filetable_mutex);
 				tracker_peertableremove(peertable, toRemove);
+				tracker_peertableprint(peertable);
 				printTable(filetable);
 				continue;
 			}
 			peer = peer->next; 
 		}
-		tracker_peertableprint(peertable);
 		pthread_mutex_unlock(peertable_mutex);
 		sleep(HEARTRATE/2);
 	}
@@ -248,10 +250,11 @@ void* tracker_Handshake(void *arg){
 				printf("Received keep alive message\n");
 				break; 
 			case FILE_UPDATE: 
-				// printf("received file update packet\n");
+				printf("received update packet\n");
 				fflush(stdout);
 				if (tracker_compareFiletables(segment) > 0){
 					broadcastUpdates();
+					printTable(filetable);
 				}
 				break; 
 		}
@@ -277,7 +280,6 @@ int tracker_acceptRegister(int peerconn){
 
 //needs to take in the segments file table or the segment itself
 int tracker_compareFiletables(ptp_peer_t segment){
-	printTable(filetable);
 
 	Node *currNode; 
 	int i, broadcast;
@@ -342,18 +344,18 @@ int broadcastUpdates(){
 	packFileTable(filetable, filetable_mutex, broadcast.sendNode, &broadcast.file_table_size);
 
 	//Send to all alive peers
-	pthread_mutex_lock(peertable_mutex);
+	// pthread_mutex_lock(peertable_mutex);
 	currPeer = peertable->head;
 	while (currPeer != NULL){
 		if (tracker_sendseg(currPeer->sockfd, &broadcast) < 0 ){
 			printf("send broadcast failed at peer %d\n", currPeer->sockfd);
-			pthread_mutex_unlock(peertable_mutex);
+			// pthread_mutex_unlock(peertable_mutex);
 			return -1;
 		}
 		printf("Broadcast filetable\n");
 		currPeer = currPeer->next; 
 	}
-	pthread_mutex_unlock(peertable_mutex);
+	// pthread_mutex_unlock(peertable_mutex);
 	return 1; 
 }
 

@@ -189,6 +189,7 @@ int sendFileUpdate(FileTable *filetable, pthread_mutex_t *filetable_mutex, int t
     return -1; 
   }else{
     // printf("File update packet sent\n");
+    printTable(filetable);
     return 1; 
   }
 }
