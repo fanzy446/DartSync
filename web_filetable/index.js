@@ -56,7 +56,9 @@ function socketToTracker(){
 }
 
 function parseFileData(str){
-	var htmlStr = "<div><span class='glyphicon glyphicon-refresh' aria-hidden='true'></span> &nbsp Last Update: "+ new Date() +"</div>";
+	var htmlStr = "";
+	htmlStr +='<div id="table_head"><span style="display:inline-block;width:35%; ">Path</span><span style="margin-left:150px;display:inline-block;width:10%;">File size</span> <span style="margin-left:100px;display:inline-block;width:10%;">Timestamp</span></div>';
+	htmlStr += "<div><span class='glyphicon glyphicon-refresh' aria-hidden='true'></span> &nbsp Last Update: "+ new Date() +"</div>";
 	var entries = str.split("|");
 	entries.pop();
 	for(var i = 0; i<entries.length; i++){
